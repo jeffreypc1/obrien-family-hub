@@ -17,7 +17,7 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid PIN' }, { status: 401 });
   }
 
-  if (config) {
+  if (config && Object.keys(config).length > 0) {
     await prisma.hubConfig.upsert({
       where: { id: 'singleton' },
       update: config,

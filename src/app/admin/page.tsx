@@ -65,24 +65,30 @@ export default function AdminPage() {
 
   const apiCall = async (body: Record<string, unknown>) => {
     setSaving(true);
-    const res = await fetch('/api/admin', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ pin, ...body }),
-    });
-    if (!res.ok) {
-      const err = await res.json();
-      setMessage(err.error || 'Error');
+    setMessage('');
+    try {
+      const res = await fetch('/api/admin', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pin, ...body }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setMessage(`Error: ${data.error || 'Something went wrong'}`);
+        setSaving(false);
+        return false;
+      }
+      setMembers(data.members || []);
+      setConfig(data.config);
+      setSaving(false);
+      setMessage('✓ Saved!');
+      setTimeout(() => setMessage(''), 3000);
+      return true;
+    } catch (e) {
+      setMessage(`Error: ${e instanceof Error ? e.message : 'Network error'}`);
       setSaving(false);
       return false;
     }
-    const data = await res.json();
-    setMembers(data.members || []);
-    setConfig(data.config);
-    setSaving(false);
-    setMessage('Saved!');
-    setTimeout(() => setMessage(''), 2000);
-    return true;
   };
 
   const handleAddMember = async () => {
@@ -101,6 +107,20 @@ export default function AdminPage() {
     await apiCall({ config });
   };
 
+  const handleLogin = async () => {
+    // Verify PIN before showing admin
+    const res = await fetch('/api/admin', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pin, config: {} }), // no-op update to verify PIN
+    });
+    if (res.ok) {
+      setAuthed(true);
+    } else {
+      setMessage('Error: Wrong PIN');
+    }
+  };
+
   if (!authed) {
     return (
       <div className="min-h-screen flex items-center justify-center relative z-10">
@@ -108,12 +128,13 @@ export default function AdminPage() {
           <div className="text-5xl mb-4">🔐</div>
           <h1 className="text-2xl font-bold mb-2">Admin Panel</h1>
           <p className="text-white/40 text-sm mb-6">Enter the family PIN</p>
+          {message && <p className="text-red-400 text-sm mb-4">{message}</p>}
           <div className="flex gap-2">
             <input type="password" value={pin} onChange={(e) => setPin(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && setAuthed(true)}
+              onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
               placeholder="PIN..."
               className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-center tracking-widest placeholder-white/30 focus:outline-none focus:border-purple-500" />
-            <button onClick={() => setAuthed(true)}
+            <button onClick={handleLogin}
               className="px-6 py-3 rounded-xl bg-gradient-to-r from-purple-500 to-pink-500 text-white font-medium">
               Enter
             </button>
@@ -129,7 +150,11 @@ export default function AdminPage() {
         <div className="max-w-4xl mx-auto px-6 py-4 flex items-center justify-between">
           <Link href="/" className="text-white/40 hover:text-white/80 transition-colors text-sm">← Back to Hub</Link>
           <div className="flex items-center gap-3">
-            {message && <span className="text-green-400 text-sm animate-pulse">{message}</span>}
+            {message && (
+              <span className={`text-sm px-3 py-1 rounded-lg ${
+                message.startsWith('Error') ? 'bg-red-500/10 text-red-400' : 'bg-green-500/10 text-green-400'
+              }`}>{message}</span>
+            )}
             <span className="text-white/20 text-xs">Admin</span>
           </div>
         </div>
