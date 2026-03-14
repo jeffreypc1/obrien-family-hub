@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { Stars, Html, Cloud } from '@react-three/drei';
+import { Stars, Html, Cloud, Environment } from '@react-three/drei';
 import { EffectComposer, Bloom, Vignette, ChromaticAberration } from '@react-three/postprocessing';
 import { BlendFunction } from 'postprocessing';
 import * as THREE from 'three';
@@ -194,6 +194,9 @@ export default function HouseScene({ onNavigate, skipIntro = false }: HouseScene
       >
         <color attach="background" args={['#050510']} />
         <fog attach="fog" args={['#080818', 35, 90]} />
+
+        {/* HDRI Environment for realistic reflections */}
+        <Environment files="/night-sky.hdr" background={false} environmentIntensity={0.3} />
 
         {/* Stars */}
         <Stars radius={100} depth={50} count={5000} factor={5} saturation={0.6} />

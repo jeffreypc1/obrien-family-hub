@@ -54,28 +54,31 @@ export default function House({ onRoomHover, onRoomClick, roomZones }: {
   // Load PBR textures
   const brickTex = useLoader(TextureLoader, '/tex-brick.jpg');
   const brickNor = useLoader(TextureLoader, '/tex-brick-nor.jpg');
+  const brickRough = useLoader(TextureLoader, '/tex-brick-rough.jpg');
   const grassTex = useLoader(TextureLoader, '/tex-grass.jpg');
   const grassNor = useLoader(TextureLoader, '/tex-grass-nor.jpg');
   const roofTex = useLoader(TextureLoader, '/tex-roof.jpg');
   const roofNor = useLoader(TextureLoader, '/tex-roof-nor.jpg');
+  const roofRough = useLoader(TextureLoader, '/tex-roof-rough.jpg');
   const woodTex = useLoader(TextureLoader, '/tex-wood.jpg');
+  const woodNor = useLoader(TextureLoader, '/tex-wood-nor.jpg');
   const concreteTex = useLoader(TextureLoader, '/tex-concrete.jpg');
 
   // Configure texture repeats
   useMemo(() => {
-    [brickTex, brickNor].forEach((t) => { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(3, 2); });
-    [grassTex, grassNor].forEach((t) => { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(20, 20); });
-    [roofTex, roofNor].forEach((t) => { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(4, 3); });
-    woodTex.wrapS = woodTex.wrapT = THREE.RepeatWrapping; woodTex.repeat.set(4, 4);
+    [brickTex, brickNor, brickRough].forEach((t) => { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(3, 2); });
+    [grassTex, grassNor].forEach((t) => { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(25, 25); });
+    [roofTex, roofNor, roofRough].forEach((t) => { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(4, 3); });
+    [woodTex, woodNor].forEach((t) => { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(4, 4); });
     concreteTex.wrapS = concreteTex.wrapT = THREE.RepeatWrapping; concreteTex.repeat.set(6, 1);
-  }, [brickTex, brickNor, grassTex, grassNor, roofTex, roofNor, woodTex, concreteTex]);
+  }, [brickTex, brickNor, brickRough, grassTex, grassNor, roofTex, roofNor, roofRough, woodTex, woodNor, concreteTex]);
 
   return (
     <group position={[0, -1, 0]}>
       {/* ===== TEXTURED GROUND ===== */}
       <mesh position={[0, -0.01, 0]} receiveShadow rotation={[-Math.PI / 2, 0, 0]}>
         <planeGeometry args={[80, 80]} />
-        <meshStandardMaterial map={grassTex} normalMap={grassNor} normalScale={new THREE.Vector2(0.5, 0.5)} roughness={0.95} />
+        <meshStandardMaterial map={grassTex} normalMap={grassNor} normalScale={new THREE.Vector2(0.8, 0.8)} roughness={0.95} />
       </mesh>
 
       {/* ===== FOUNDATION ===== */}
@@ -87,7 +90,7 @@ export default function House({ onRoomHover, onRoomClick, roomZones }: {
       {/* ===== MAIN HOUSE — BRICK TEXTURED ===== */}
       <mesh position={[0, 1.35, 0]} castShadow receiveShadow>
         <boxGeometry args={[7, 2.5, 5.5]} />
-        <meshStandardMaterial map={brickTex} normalMap={brickNor} normalScale={new THREE.Vector2(1, 1)} roughness={0.8} />
+        <meshStandardMaterial map={brickTex} normalMap={brickNor} roughnessMap={brickRough} normalScale={new THREE.Vector2(1.2, 1.2)} />
       </mesh>
 
       {/* Second floor accent (different brick tone) */}
@@ -101,11 +104,11 @@ export default function House({ onRoomHover, onRoomClick, roomZones }: {
         <boxGeometry args={[3, 2, 5]} />
         <meshStandardMaterial map={brickTex} normalMap={brickNor} color="#C4B49E" roughness={0.8} />
       </mesh>
-      <RoofSection position={[-5.5, 2.6, 0]} width={3.6} depth={5.6} height={1.2} roofTex={roofTex} roofNor={roofNor} />
+      <RoofSection position={[-5.5, 2.6, 0]} width={3.6} depth={5.6} height={1.2} roofTex={roofTex} roofNor={roofNor} roofRough={roofRough} />
       <WindowWithInterior position={[-5.5, 1.2, 2.52]} size={[1.4, 1.2]} glowColor="#E91E8C" items="music" />
 
       {/* ===== TEXTURED ROOF ===== */}
-      <RoofSection position={[0, 3.35, 0]} width={7.8} depth={6.2} height={2} roofTex={roofTex} roofNor={roofNor} />
+      <RoofSection position={[0, 3.35, 0]} width={7.8} depth={6.2} height={2} roofTex={roofTex} roofNor={roofNor} roofRough={roofRough} />
 
       {/* Roof trim */}
       <mesh position={[0, 3.35, 3.15]}>
@@ -128,7 +131,7 @@ export default function House({ onRoomHover, onRoomClick, roomZones }: {
         <boxGeometry args={[3, 2, 5.5]} />
         <meshStandardMaterial map={brickTex} normalMap={brickNor} color="#C8B898" roughness={0.8} />
       </mesh>
-      <RoofSection position={[5, 2.5, 0]} width={3.6} depth={6} height={1.2} roofTex={roofTex} roofNor={roofNor} />
+      <RoofSection position={[5, 2.5, 0]} width={3.6} depth={6} height={1.2} roofTex={roofTex} roofNor={roofNor} roofRough={roofRough} />
       {/* Garage door */}
       <mesh position={[5, 0.95, 2.77]}>
         <boxGeometry args={[2.5, 1.8, 0.06]} />
@@ -159,7 +162,7 @@ export default function House({ onRoomHover, onRoomClick, roomZones }: {
       {/* ===== PORCH — WOOD TEXTURED ===== */}
       <mesh position={[0, 0.12, 3.5]} receiveShadow>
         <boxGeometry args={[5, 0.12, 2.5]} />
-        <meshStandardMaterial map={woodTex} color="#7A6B55" roughness={0.8} />
+        <meshStandardMaterial map={woodTex} normalMap={woodNor} color="#7A6B55" roughness={0.8} />
       </mesh>
       {/* Porch columns */}
       {[-2, 2].map((x) => (
@@ -171,7 +174,7 @@ export default function House({ onRoomHover, onRoomClick, roomZones }: {
       {/* Porch overhang */}
       <mesh position={[0, 2.88, 3.8]}>
         <boxGeometry args={[5.2, 0.1, 3.2]} />
-        <meshStandardMaterial map={woodTex} color="#5A4D3E" roughness={0.7} />
+        <meshStandardMaterial map={woodTex} normalMap={woodNor} color="#5A4D3E" roughness={0.7} />
       </mesh>
       {/* Porch light */}
       <PorchLight position={[0, 2.55, 2.8]} />
@@ -283,9 +286,9 @@ export default function House({ onRoomHover, onRoomClick, roomZones }: {
   );
 }
 
-function RoofSection({ position, width, depth, height, roofTex, roofNor }: {
+function RoofSection({ position, width, depth, height, roofTex, roofNor, roofRough }: {
   position: [number, number, number]; width: number; depth: number; height: number;
-  roofTex: THREE.Texture; roofNor: THREE.Texture;
+  roofTex: THREE.Texture; roofNor: THREE.Texture; roofRough?: THREE.Texture;
 }) {
   const shape = new THREE.Shape();
   shape.moveTo(-width / 2, 0);
@@ -296,7 +299,7 @@ function RoofSection({ position, width, depth, height, roofTex, roofNor }: {
   return (
     <mesh position={[position[0], position[1], position[2] - depth / 2]} castShadow rotation={[Math.PI / 2, 0, 0]}>
       <extrudeGeometry args={[shape, { depth, bevelEnabled: false }]} />
-      <meshStandardMaterial map={roofTex} normalMap={roofNor} normalScale={new THREE.Vector2(0.8, 0.8)} color="#7A5A3A" roughness={0.85} />
+      <meshStandardMaterial map={roofTex} normalMap={roofNor} roughnessMap={roofRough} normalScale={new THREE.Vector2(1, 1)} color="#7A5A3A" />
     </mesh>
   );
 }
