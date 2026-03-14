@@ -121,6 +121,25 @@ export default function GermanPage() {
           </motion.div>
         </AnimatePresence>
 
+        {/* Refresh hint */}
+        {!loading && filteredVideos.length > 0 && (
+          <div className="flex justify-center mb-8">
+            <button
+              onClick={() => {
+                setVideos(prev => {
+                  const others = prev.filter(v => v.skillLevel !== activeLevel);
+                  const current = prev.filter(v => v.skillLevel === activeLevel);
+                  const shuffled = [...current].sort(() => Math.random() - 0.5);
+                  return [...others, ...shuffled];
+                });
+              }}
+              className="px-5 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white/40 hover:text-white hover:bg-white/10 text-sm font-medium transition-all flex items-center gap-2"
+            >
+              🔀 Shuffle Videos
+            </button>
+          </div>
+        )}
+
         {/* Video grid */}
         {loading ? (
           <div className="flex justify-center py-20">

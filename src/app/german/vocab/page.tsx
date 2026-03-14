@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
+import { useFamilyMember } from '@/components/FamilyContext';
 
 interface VocabEntry {
   id: string;
@@ -14,33 +15,22 @@ interface VocabEntry {
 }
 
 export default function VocabPage() {
+  const { currentMember, setShowPicker } = useFamilyMember();
   const [vocab, setVocab] = useState<VocabEntry[]>([]);
-  const [userName, setUserName] = useState('');
-  const [nameInput, setNameInput] = useState('');
   const [flashMode, setFlashMode] = useState(false);
   const [flashIndex, setFlashIndex] = useState(0);
   const [showAnswer, setShowAnswer] = useState(false);
   const [sortBy, setSortBy] = useState<'recent' | 'alpha'>('recent');
 
   useEffect(() => {
-    const saved = localStorage.getItem('german-user-name');
-    if (saved) {
-      setUserName(saved);
-      fetchVocab(saved);
+    if (currentMember) {
+      fetchVocab(currentMember.name);
     }
-  }, []);
+  }, [currentMember]);
 
   const fetchVocab = async (name: string) => {
     const res = await fetch(`/api/german/vocab?user=${encodeURIComponent(name)}`);
     setVocab(await res.json());
-  };
-
-  const handleSetName = () => {
-    if (!nameInput.trim()) return;
-    const name = nameInput.trim();
-    setUserName(name);
-    localStorage.setItem('german-user-name', name);
-    fetchVocab(name);
   };
 
   const handleDelete = async (id: string) => {
@@ -55,29 +45,19 @@ export default function VocabPage() {
 
   const flashCards = vocab.length > 0 ? vocab : [];
 
-  if (!userName) {
+  if (!currentMember) {
     return (
       <div className="min-h-screen flex items-center justify-center relative z-10">
         <div className="glass rounded-3xl p-10 max-w-md w-full text-center">
           <div className="text-5xl mb-4">📚</div>
           <h1 className="text-2xl font-fredoka font-bold mb-2">My Vocabulary</h1>
-          <p className="text-white/40 text-sm mb-6">Enter your name to see your saved words</p>
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={nameInput}
-              onChange={(e) => setNameInput(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleSetName()}
-              placeholder="Your name..."
-              className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/30 focus:outline-none focus:border-purple-500"
-            />
-            <button
-              onClick={handleSetName}
-              className="px-6 py-3 rounded-xl bg-gradient-to-r from-yellow-500 to-red-500 text-white font-medium"
-            >
-              Go
-            </button>
-          </div>
+          <p className="text-white/40 text-sm mb-6">Pick your profile to see your saved words</p>
+          <button
+            onClick={() => setShowPicker(true)}
+            className="px-6 py-3 rounded-xl bg-gradient-to-r from-yellow-500 to-red-500 text-white font-medium"
+          >
+            Choose Profile
+          </button>
         </div>
       </div>
     );
@@ -91,7 +71,7 @@ export default function VocabPage() {
           <Link href="/german" className="text-white/40 hover:text-white/80 transition-colors text-sm">
             ← Back to Videos
           </Link>
-          <span className="text-white/30 text-sm">Logged in as {userName}</span>
+          <span className="text-white/30 text-sm">{currentMember.emoji} {currentMember.name}</span>
         </div>
       </div>
 

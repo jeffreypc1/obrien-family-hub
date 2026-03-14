@@ -1,6 +1,8 @@
 import type { Metadata } from 'next';
 import { Fredoka, Outfit } from 'next/font/google';
 import './globals.css';
+import { FamilyProvider } from '@/components/FamilyContext';
+import FamilyPicker from '@/components/FamilyPicker';
 
 const fredoka = Fredoka({
   subsets: ['latin'],
@@ -26,7 +28,12 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className={`${fredoka.variable} ${outfit.variable}`}>
-      <body className="font-outfit">{children}</body>
+      <body className="font-outfit">
+        <FamilyProvider>
+          <FamilyPicker />
+          {children}
+        </FamilyProvider>
+      </body>
     </html>
   );
 }

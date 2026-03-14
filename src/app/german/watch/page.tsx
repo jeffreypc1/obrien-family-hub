@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
+import { useFamilyMember } from '@/components/FamilyContext';
 
 interface Segment {
   id: string;
@@ -40,11 +41,11 @@ function WatchPageContent() {
   const videoId = searchParams.get('id');
 
   const [video, setVideo] = useState<VideoData | null>(null);
+  const { currentMember, setShowPicker } = useFamilyMember();
   const [mode, setMode] = useState<TranscriptMode>('both');
   const [showTranscript, setShowTranscript] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [userName, setUserName] = useState('');
   const [addedWords, setAddedWords] = useState<Set<string>>(new Set());
   const [showVocab, setShowVocab] = useState(false);
 
@@ -135,18 +136,16 @@ function WatchPageContent() {
   );
 
   const addToVocab = async (item: VocabItem) => {
-    if (!userName) {
-      const name = prompt('Enter your name to save vocabulary:');
-      if (!name) return;
-      setUserName(name);
+    if (!currentMember) {
+      setShowPicker(true);
+      return;
     }
 
-    const currentName = userName || (document.querySelector<HTMLInputElement>('#vocab-name-input')?.value ?? '');
     await fetch('/api/german/vocab', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        userName: currentName || userName,
+        userName: currentMember.name,
         germanWord: item.germanWord,
         englishWord: item.englishWord,
         exampleSentence: item.exampleSentence,
@@ -200,9 +199,9 @@ function WatchPageContent() {
           <div id="yt-player" className="absolute inset-0 w-full h-full" />
         </div>
 
-        {/* Transcript toggle buttons */}
-        {video.segments.length > 0 && (
-          <div className="flex flex-wrap gap-3 mb-6">
+        {/* Transcript + Vocab toggle buttons */}
+        <div className="flex flex-wrap gap-3 mb-6">
+          {video.segments.length > 0 && (
             <button
               onClick={() => { setShowTranscript(!showTranscript); }}
               className={`px-5 py-2.5 rounded-xl text-sm font-medium transition-all ${
@@ -213,153 +212,157 @@ function WatchPageContent() {
             >
               📜 {showTranscript ? 'Hide' : 'Show'} Transcript
             </button>
+          )}
 
-            {showTranscript && (
-              <div className="flex gap-1 bg-white/5 rounded-xl p-1">
-                {([
-                  { key: 'german' as const, label: '🇩🇪 Deutsch' },
-                  { key: 'english' as const, label: '🇺🇸 English' },
-                  { key: 'both' as const, label: '🇩🇪/🇺🇸 Both' },
-                ]).map((m) => (
-                  <button
-                    key={m.key}
-                    onClick={() => setMode(m.key)}
-                    className={`px-4 py-2 rounded-lg text-xs font-medium transition-all ${
-                      mode === m.key ? 'bg-white/10 text-white' : 'text-white/40 hover:text-white/70'
-                    }`}
-                  >
-                    {m.label}
-                  </button>
-                ))}
-              </div>
-            )}
-
-            {video.vocabItems.length > 0 && (
-              <button
-                onClick={() => setShowVocab(!showVocab)}
-                className={`px-5 py-2.5 rounded-xl text-sm font-medium transition-all ml-auto ${
-                  showVocab
-                    ? 'bg-yellow-500/10 text-yellow-400 border border-yellow-500/20'
-                    : 'bg-white/5 text-white/50 hover:text-white border border-white/10'
-                }`}
-              >
-                📚 Vocabulary ({video.vocabItems.length})
-              </button>
-            )}
-          </div>
-        )}
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Transcript panel */}
-          <AnimatePresence>
-            {showTranscript && (
-              <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto' }}
-                exit={{ opacity: 0, height: 0 }}
-                className="lg:col-span-2"
-              >
-                <div
-                  ref={containerRef}
-                  className="glass rounded-2xl max-h-[500px] overflow-y-auto divide-y divide-white/5 scroll-smooth"
+          {showTranscript && (
+            <div className="flex gap-1 bg-white/5 rounded-xl p-1">
+              {([
+                { key: 'german' as const, label: '🇩🇪 Deutsch' },
+                { key: 'english' as const, label: '🇺🇸 English' },
+                { key: 'both' as const, label: '🇩🇪/🇺🇸 Both' },
+              ]).map((m) => (
+                <button
+                  key={m.key}
+                  onClick={() => setMode(m.key)}
+                  className={`px-4 py-2 rounded-lg text-xs font-medium transition-all ${
+                    mode === m.key ? 'bg-white/10 text-white' : 'text-white/40 hover:text-white/70'
+                  }`}
                 >
-                  {video.segments.map((seg) => {
-                    const isActive = activeSegment?.id === seg.id;
-                    return (
-                      <div
-                        key={seg.id}
-                        ref={isActive ? activeLineRef : undefined}
-                        onClick={() => seekTo(seg.startTime)}
-                        className={`flex gap-4 p-4 cursor-pointer transition-all ${
-                          isActive
-                            ? 'bg-white/10 border-l-2 border-yellow-400'
-                            : 'hover:bg-white/5 border-l-2 border-transparent'
-                        }`}
-                      >
-                        {/* Timestamp */}
-                        <span className={`text-xs font-mono flex-shrink-0 pt-0.5 ${
-                          isActive ? 'text-yellow-400' : 'text-white/20'
-                        }`}>
-                          {formatTime(seg.startTime)}
-                        </span>
+                  {m.label}
+                </button>
+              ))}
+            </div>
+          )}
 
-                        {/* Text */}
-                        <div className="flex-1 space-y-1">
-                          {(mode === 'german' || mode === 'both') && (
-                            <p className={`text-sm leading-relaxed ${
-                              isActive ? 'text-white font-medium' : 'text-white/70'
-                            }`}>
-                              {seg.germanText}
-                            </p>
-                          )}
-                          {(mode === 'english' || mode === 'both') && (
-                            <p className={`text-sm leading-relaxed ${
-                              mode === 'both' ? 'text-white/40 italic' : isActive ? 'text-white' : 'text-white/70'
-                            }`}>
-                              {seg.englishText}
-                            </p>
+          {video.vocabItems.length > 0 && (
+            <button
+              onClick={() => setShowVocab(!showVocab)}
+              className={`px-5 py-2.5 rounded-xl text-sm font-medium transition-all ml-auto ${
+                showVocab
+                  ? 'bg-yellow-500/10 text-yellow-400 border border-yellow-500/20'
+                  : 'bg-white/5 text-white/50 hover:text-white border border-white/10'
+              }`}
+            >
+              📚 Vocabulary ({video.vocabItems.length})
+            </button>
+          )}
+        </div>
+
+        {/* Transcript panel — full width, larger text */}
+        <AnimatePresence>
+          {showTranscript && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+            >
+              <div
+                ref={containerRef}
+                className="glass rounded-2xl max-h-[600px] overflow-y-auto divide-y divide-white/5 scroll-smooth"
+              >
+                {video.segments.map((seg) => {
+                  const isActive = activeSegment?.id === seg.id;
+                  return (
+                    <div
+                      key={seg.id}
+                      ref={isActive ? activeLineRef : undefined}
+                      onClick={() => seekTo(seg.startTime)}
+                      className={`flex gap-5 px-6 py-5 cursor-pointer transition-all ${
+                        isActive
+                          ? 'bg-yellow-400/10 border-l-4 border-yellow-400'
+                          : 'hover:bg-white/5 border-l-4 border-transparent'
+                      }`}
+                    >
+                      {/* Timestamp */}
+                      <span className={`text-sm font-mono flex-shrink-0 pt-1 ${
+                        isActive ? 'text-yellow-400 font-bold' : 'text-white/25'
+                      }`}>
+                        {formatTime(seg.startTime)}
+                      </span>
+
+                      {/* Text — large and readable */}
+                      <div className="flex-1 space-y-2">
+                        {(mode === 'german' || mode === 'both') && (
+                          <p className={`text-lg md:text-xl leading-relaxed ${
+                            isActive ? 'text-white font-semibold' : 'text-white/80'
+                          }`}>
+                            {seg.germanText}
+                          </p>
+                        )}
+                        {(mode === 'english' || mode === 'both') && (
+                          <p className={`text-base md:text-lg leading-relaxed ${
+                            mode === 'both' ? 'text-white/40 italic' : isActive ? 'text-white font-medium' : 'text-white/70'
+                          }`}>
+                            {seg.englishText}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Vocabulary panel — full width, grid layout */}
+        <AnimatePresence>
+          {showVocab && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="mt-6"
+            >
+              <div className="glass rounded-2xl p-6 max-h-[600px] overflow-y-auto">
+                <h3 className="text-sm font-medium text-white/40 uppercase tracking-wider mb-5">
+                  Key Vocabulary — {video.vocabItems.length} words
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {video.vocabItems.map((item) => {
+                    const isAdded = addedWords.has(item.germanWord);
+                    return (
+                      <div key={item.id} className="flex items-start gap-3 bg-white/[0.02] rounded-xl p-4 group hover:bg-white/[0.05] transition-colors">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="font-bold text-base">{item.germanWord}</span>
+                            {item.partOfSpeech && (
+                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-white/5 text-white/25">{item.partOfSpeech}</span>
+                            )}
+                          </div>
+                          <p className="text-white/60 text-sm">{item.englishWord}</p>
+                          {item.exampleSentence && (
+                            <div className="mt-2 pl-3 border-l-2 border-white/10">
+                              <p className="text-white/40 text-xs leading-relaxed">
+                                {item.exampleSentence}
+                              </p>
+                              {item.exampleTranslation && (
+                                <p className="text-white/25 text-xs italic mt-0.5">
+                                  {item.exampleTranslation}
+                                </p>
+                              )}
+                            </div>
                           )}
                         </div>
+                        <button
+                          onClick={() => addToVocab(item)}
+                          disabled={isAdded}
+                          className={`flex-shrink-0 px-3 py-2 rounded-lg text-xs font-medium transition-all ${
+                            isAdded
+                              ? 'bg-green-500/10 text-green-400'
+                              : 'bg-white/5 text-white/40 hover:text-white hover:bg-white/10'
+                          }`}
+                        >
+                          {isAdded ? '✓ Saved' : '+ Save'}
+                        </button>
                       </div>
                     );
                   })}
                 </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-
-          {/* Vocabulary panel */}
-          <AnimatePresence>
-            {showVocab && (
-              <motion.div
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: 20 }}
-                className={showTranscript ? 'lg:col-span-1' : 'lg:col-span-3'}
-              >
-                <div className="glass rounded-2xl p-5 max-h-[500px] overflow-y-auto">
-                  <h3 className="text-sm font-medium text-white/40 uppercase tracking-wider mb-4">
-                    Key Vocabulary
-                  </h3>
-                  <div className="space-y-3">
-                    {video.vocabItems.map((item) => {
-                      const isAdded = addedWords.has(item.germanWord);
-                      return (
-                        <div key={item.id} className="flex items-start gap-3 group">
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2">
-                              <span className="font-bold text-sm">{item.germanWord}</span>
-                              {item.partOfSpeech && (
-                                <span className="text-[10px] text-white/20 italic">{item.partOfSpeech}</span>
-                              )}
-                            </div>
-                            <p className="text-white/50 text-xs">{item.englishWord}</p>
-                            {item.exampleSentence && (
-                              <p className="text-white/30 text-[11px] mt-1 italic">
-                                &ldquo;{item.exampleSentence}&rdquo;
-                              </p>
-                            )}
-                          </div>
-                          <button
-                            onClick={() => addToVocab(item)}
-                            disabled={isAdded}
-                            className={`flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                              isAdded
-                                ? 'bg-green-500/10 text-green-400'
-                                : 'bg-white/5 text-white/40 hover:text-white hover:bg-white/10'
-                            }`}
-                          >
-                            {isAdded ? '✓ Added' : '+ Save'}
-                          </button>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </div>
   );
