@@ -86,7 +86,7 @@ export const FAMILY_APPS: FamilyApp[] = [
     gradient: 'from-cyan-500 via-blue-500 to-indigo-500',
     glowClass: 'glow-cyan',
     accentColor: '#06B6D4',
-    status: 'coming-soon',
+    status: 'live',
   },
   {
     id: 'recommendations',

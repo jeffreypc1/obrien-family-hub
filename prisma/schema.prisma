@@ -143,9 +143,52 @@ model CalendarEvent {
   description String?
   emoji       String   @default("📅")
   date        String
+  startTime   String?
+  endTime     String?
   recurring   String?
   createdBy   String?
   createdAt   DateTime @default(now())
+}
+
+model Trip {
+  id          String      @id @default(cuid())
+  title       String
+  destination String
+  startDate   String
+  endDate     String
+  status      String      @default("planned")
+  coverImage  String?
+  description String?
+  createdBy   String?
+  createdAt   DateTime    @default(now())
+  items       TripItem[]
+  photos      TripPhoto[]
+}
+
+model TripItem {
+  id        String @id @default(cuid())
+  tripId    String
+  trip      Trip   @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  date      String
+  time      String?
+  endTime   String?
+  type      String @default("activity")
+  title     String
+  details   String?
+  address   String?
+  url       String?
+  sortOrder Int    @default(0)
+}
+
+model TripPhoto {
+  id         String   @id @default(cuid())
+  tripId     String
+  trip       Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  date       String
+  imageUrl   String
+  caption    String?
+  uploadedBy String?
+  createdAt  DateTime @default(now())
 }
 
 model LocalEvent {

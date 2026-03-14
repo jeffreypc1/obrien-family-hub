@@ -12,6 +12,8 @@ interface CalendarEvent {
   description: string | null;
   emoji: string;
   date: string;
+  startTime: string | null;
+  endTime: string | null;
   recurring: string | null;
   createdBy: string | null;
 }
@@ -43,6 +45,9 @@ export default function EventsPage() {
   const [newDesc, setNewDesc] = useState('');
   const [newEmoji, setNewEmoji] = useState('📅');
   const [newRecurring, setNewRecurring] = useState('');
+  const [newStartTime, setNewStartTime] = useState('');
+  const [newEndTime, setNewEndTime] = useState('');
+  const [editingEvent, setEditingEvent] = useState<string | null>(null);
   const [locations, setLocations] = useState<string[]>([]);
   const [activeCity, setActiveCity] = useState('');
   const [newCity, setNewCity] = useState('');
@@ -80,15 +85,18 @@ export default function EventsPage() {
   const handleAddEvent = async () => {
     if (!newTitle.trim() || !newDate) return;
     await fetch('/api/events', {
-      method: 'POST',
+      method: editingEvent ? 'PUT' : 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
+        ...(editingEvent ? { id: editingEvent } : {}),
         title: newTitle.trim(), description: newDesc.trim() || null,
-        emoji: newEmoji, date: newDate, recurring: newRecurring || null,
+        emoji: newEmoji, date: newDate, startTime: newStartTime || null,
+        endTime: newEndTime || null, recurring: newRecurring || null,
         createdBy: currentMember?.name,
       }),
     });
     setNewTitle(''); setNewDate(''); setNewDesc(''); setNewEmoji('📅'); setNewRecurring('');
+    setNewStartTime(''); setNewEndTime(''); setEditingEvent(null);
     setShowAdd(false);
     fetchEvents();
   };
@@ -228,6 +236,16 @@ export default function EventsPage() {
                     <option value="weekly">Every week</option>
                   </select>
                 </div>
+                <div>
+                  <label className="text-xs text-white/30 block mb-1">Start time</label>
+                  <input type="time" value={newStartTime} onChange={(e) => setNewStartTime(e.target.value)}
+                    className="bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white text-sm focus:outline-none [color-scheme:dark]" />
+                </div>
+                <div>
+                  <label className="text-xs text-white/30 block mb-1">End time</label>
+                  <input type="time" value={newEndTime} onChange={(e) => setNewEndTime(e.target.value)}
+                    className="bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white text-sm focus:outline-none [color-scheme:dark]" />
+                </div>
               </div>
               <div>
                 <label className="text-xs text-white/30 block mb-1">Emoji</label>
@@ -342,10 +360,22 @@ export default function EventsPage() {
                           <span className="text-xl">{evt.emoji}</span>
                           <div className="flex-1 min-w-0">
                             <h4 className="text-sm font-medium">{evt.title}</h4>
+                            {(evt.startTime || evt.endTime) && (
+                              <p className="text-xs text-violet-400/60 mt-0.5">
+                                🕐 {evt.startTime}{evt.endTime ? ` – ${evt.endTime}` : ''}
+                              </p>
+                            )}
                             {evt.description && <p className="text-white/30 text-xs mt-0.5">{evt.description}</p>}
                             {evt.recurring && <span className="text-[10px] text-violet-400/50">🔁 {evt.recurring}</span>}
                           </div>
                           <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button onClick={() => {
+                              setEditingEvent(evt.id); setNewTitle(evt.title); setNewDate(evt.date);
+                              setNewEmoji(evt.emoji); setNewDesc(evt.description || '');
+                              setNewRecurring(evt.recurring || '');
+                              setNewStartTime(evt.startTime || ''); setNewEndTime(evt.endTime || '');
+                              setShowAdd(true);
+                            }} className="text-[9px] text-white/25 hover:text-white/50 px-1.5 py-0.5 rounded bg-white/5">✏️</button>
                             <button onClick={() => addToCalendar(evt)} className="text-[9px] text-white/25 hover:text-white/50 px-1.5 py-0.5 rounded bg-white/5">📅</button>
                             <button onClick={() => handleDeleteEvent(evt.id)} className="text-[9px] text-white/15 hover:text-red-400 px-1.5 py-0.5 rounded bg-white/5">✕</button>
                           </div>

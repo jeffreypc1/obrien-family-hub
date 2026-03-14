@@ -10,7 +10,7 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   const body = await request.json();
-  const { title, description, emoji, date, recurring, createdBy } = body;
+  const { title, description, emoji, date, startTime, endTime, recurring, createdBy } = body;
 
   if (!title?.trim() || !date) {
     return NextResponse.json({ error: 'title and date required' }, { status: 400 });
@@ -23,11 +23,21 @@ export async function POST(request: NextRequest) {
       description: description?.trim() || null,
       emoji: emoji || '📅',
       date,
+      startTime: startTime || null,
+      endTime: endTime || null,
       recurring: recurring || null,
       createdBy: createdBy || null,
     },
   });
 
+  return NextResponse.json(event);
+}
+
+export async function PUT(request: NextRequest) {
+  const body = await request.json();
+  const { id, ...data } = body;
+  if (!id) return NextResponse.json({ error: 'id required' }, { status: 400 });
+  const event = await prisma.calendarEvent.update({ where: { id }, data });
   return NextResponse.json(event);
 }
 
