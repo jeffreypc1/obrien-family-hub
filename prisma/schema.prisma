@@ -1,0 +1,97 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./hub.db"
+}
+
+// ==================== HUB ====================
+
+model HubApp {
+  id           String   @id @default(cuid())
+  name         String
+  tagline      String
+  description  String
+  url          String
+  icon         String
+  gradient     String
+  glowClass    String
+  accentColor  String
+  status       String   @default("live")
+  previewImage String?
+  sortOrder    Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model HubConfig {
+  id             String   @id @default("singleton")
+  heroTitle      String   @default("O'Brien")
+  heroSubtitle   String   @default("Family Hub")
+  heroCopy       String   @default("Our corner of the internet. Apps, games, and things we built — just for us.")
+  heroIcon       String   @default("🏠")
+  updatedAt      DateTime @updatedAt
+}
+
+// ==================== GERMAN LEARNING ====================
+
+model GermanVideo {
+  id           String         @id @default(cuid())
+  youtubeId    String         @unique
+  title        String
+  channel      String
+  skillLevel   String
+  description  String?
+  thumbnailUrl String?
+  duration     Int?
+  sortOrder    Int            @default(0)
+  createdAt    DateTime       @default(now())
+  segments     VideoSegment[]
+  vocabItems   VideoVocab[]
+}
+
+model VideoSegment {
+  id          String      @id @default(cuid())
+  videoId     String
+  video       GermanVideo @relation(fields: [videoId], references: [id], onDelete: Cascade)
+  startTime   Float
+  endTime     Float
+  germanText  String
+  englishText String
+  sortOrder   Int
+}
+
+model VideoVocab {
+  id                 String      @id @default(cuid())
+  videoId            String
+  video              GermanVideo @relation(fields: [videoId], references: [id], onDelete: Cascade)
+  germanWord         String
+  englishWord        String
+  partOfSpeech       String?
+  exampleSentence    String?
+  exampleTranslation String?
+}
+
+model UserVocabList {
+  id              String   @id @default(cuid())
+  userName        String
+  germanWord      String
+  englishWord     String
+  exampleSentence String?
+  sourceVideoId   String?
+  dateAdded       DateTime @default(now())
+  lastReviewed    DateTime?
+  confidence      Int      @default(0)
+}
+
+// ==================== FAMILY MEMBERS (shared) ====================
+
+model FamilyMember {
+  id        String   @id @default(cuid())
+  name      String
+  emoji     String   @default("🎵")
+  color     String   @default("#E91E8C")
+  createdAt DateTime @default(now())
+}

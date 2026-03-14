@@ -27,6 +27,30 @@ export const FAMILY_APPS: FamilyApp[] = [
     accentColor: '#E91E8C',
     status: 'live',
   },
+  {
+    id: 'german',
+    name: 'Learn German',
+    tagline: 'Watch. Read. Speak.',
+    description: 'Learn German with curated YouTube videos, synced bilingual transcripts, and a personal vocabulary builder with flash cards.',
+    url: '/german',
+    icon: '🇩🇪',
+    gradient: 'from-yellow-500 via-red-500 to-yellow-500',
+    glowClass: 'glow-orange',
+    accentColor: '#EAB308',
+    status: 'live',
+  },
+  {
+    id: 'recipes',
+    name: 'Family Recipes',
+    tagline: 'Cook. Share. Devour.',
+    description: 'Our family cookbook — recipes passed down, discovered, and invented. Rate them, comment, and never forget the secret ingredients.',
+    url: '/recipes',
+    icon: '🍳',
+    gradient: 'from-orange-500 via-red-500 to-pink-500',
+    glowClass: 'glow-orange',
+    accentColor: '#F97316',
+    status: 'coming-soon',
+  },
   // ---- FUTURE APPS ----
   // Uncomment and customize when ready:
   //

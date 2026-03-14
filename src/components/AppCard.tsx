@@ -20,8 +20,8 @@ export default function AppCard({ app, index }: AppCardProps) {
     >
       <motion.a
         href={isLive ? app.url : undefined}
-        target={isLive ? '_blank' : undefined}
-        rel={isLive ? 'noopener noreferrer' : undefined}
+        target={isLive && app.url.startsWith('http') ? '_blank' : undefined}
+        rel={isLive && app.url.startsWith('http') ? 'noopener noreferrer' : undefined}
         className={`block glass rounded-3xl overflow-hidden group relative ${app.glowClass} ${
           isLive ? 'cursor-pointer' : 'cursor-default'
         }`}
