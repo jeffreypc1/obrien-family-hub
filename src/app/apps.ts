@@ -49,7 +49,7 @@ export const FAMILY_APPS: FamilyApp[] = [
     gradient: 'from-orange-500 via-red-500 to-pink-500',
     glowClass: 'glow-orange',
     accentColor: '#F97316',
-    status: 'coming-soon',
+    status: 'live',
   },
   // ---- FUTURE APPS ----
   // Uncomment and customize when ready:
