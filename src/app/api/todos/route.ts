@@ -59,6 +59,9 @@ export async function PUT(request: NextRequest) {
       updates.startedAt = null;
       updates.completedAt = null;
     }
+    if (status === 'archived') {
+      if (!body.completedAt) updates.completedAt = new Date().toISOString();
+    }
   }
   if (title !== undefined) updates.title = title;
   if (description !== undefined) updates.description = description;
