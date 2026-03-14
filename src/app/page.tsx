@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import Starfield from '@/components/Starfield';
 import CursorTrail from '@/components/CursorTrail';
@@ -18,8 +19,19 @@ interface HubConfig {
 
 export default function Home() {
   const { currentMember, setShowPicker } = useFamilyMember();
+  const router = useRouter();
   const [config, setConfig] = useState<HubConfig | null>(null);
+  const [checkedLanding, setCheckedLanding] = useState(false);
   const year = new Date().getFullYear();
+
+  // Redirect to 3D house if member prefers it
+  useEffect(() => {
+    if (currentMember?.landingMode === '3d-house') {
+      router.push('/home-3d');
+    } else {
+      setCheckedLanding(true);
+    }
+  }, [currentMember, router]);
 
   useEffect(() => {
     fetch('/api/admin').then((r) => r.json()).then((data) => {

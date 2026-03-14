@@ -7,6 +7,7 @@ interface FamilyMember {
   name: string;
   emoji: string;
   color: string;
+  landingMode?: string;
 }
 
 interface FamilyContextType {

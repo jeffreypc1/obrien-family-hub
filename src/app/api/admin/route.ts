@@ -11,7 +11,7 @@ export async function GET() {
 
 export async function PUT(request: NextRequest) {
   const body = await request.json();
-  const { pin, config, deleteMemberId, newMember } = body;
+  const { pin, config, deleteMemberId, newMember, updateMember } = body;
 
   if (pin !== process.env.ADMIN_PIN) {
     return NextResponse.json({ error: 'Invalid PIN' }, { status: 401 });
@@ -27,6 +27,14 @@ export async function PUT(request: NextRequest) {
 
   if (deleteMemberId) {
     await prisma.familyMember.delete({ where: { id: deleteMemberId } });
+  }
+
+  if (updateMember) {
+    const { id: memberId, ...memberData } = updateMember;
+    await prisma.familyMember.update({
+      where: { id: memberId },
+      data: memberData,
+    });
   }
 
   if (newMember) {

@@ -138,9 +138,10 @@ model ShoppingList {
 // ==================== FAMILY MEMBERS (shared) ====================
 
 model FamilyMember {
-  id        String   @id @default(cuid())
-  name      String
-  emoji     String   @default("🎵")
-  color     String   @default("#E91E8C")
-  createdAt DateTime @default(now())
+  id          String   @id @default(cuid())
+  name        String
+  emoji       String   @default("🎵")
+  color       String   @default("#E91E8C")
+  landingMode String   @default("classic")
+  createdAt   DateTime @default(now())
 }

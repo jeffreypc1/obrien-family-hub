@@ -8,6 +8,7 @@ interface FamilyMember {
   name: string;
   emoji: string;
   color: string;
+  landingMode: string;
 }
 
 interface HubConfig {
@@ -169,9 +170,22 @@ export default function AdminPage() {
 
           <div className="space-y-3 mb-6">
             {members.map((m) => (
-              <div key={m.id} className="flex items-center gap-4 p-3 bg-white/[0.02] rounded-xl">
+              <div key={m.id} className="flex items-center gap-4 p-4 bg-white/[0.02] rounded-xl">
                 <span className="text-2xl">{m.emoji}</span>
                 <span className="font-medium flex-1" style={{ color: m.color }}>{m.name}</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] text-white/25">Landing:</span>
+                  <button
+                    onClick={() => apiCall({ updateMember: { id: m.id, landingMode: m.landingMode === '3d-house' ? 'classic' : '3d-house' } })}
+                    className={`px-3 py-1 rounded-lg text-[11px] font-medium transition-all ${
+                      m.landingMode === '3d-house'
+                        ? 'bg-purple-500/20 text-purple-400 border border-purple-500/30'
+                        : 'bg-white/5 text-white/30 border border-white/10'
+                    }`}
+                  >
+                    {m.landingMode === '3d-house' ? '🛸 3D House' : '📋 Classic'}
+                  </button>
+                </div>
                 <div className="w-5 h-5 rounded-full" style={{ backgroundColor: m.color }} />
                 <button onClick={() => handleDeleteMember(m.id)}
                   className="text-white/20 hover:text-red-400 text-sm transition-colors">Remove</button>
