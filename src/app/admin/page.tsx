@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { FAMILY_APPS } from '@/app/apps';
 
 interface FamilyMember {
   id: string;
@@ -18,6 +19,8 @@ interface HubConfig {
   heroIcon: string;
   fontPrimary: string;
   roomMappingsJson: string | null;
+  appVisibilityJson?: string | null;
+  locationsJson?: string | null;
 }
 
 interface RoomMapping {
@@ -256,6 +259,72 @@ export default function AdminPage() {
               className="px-6 py-3 rounded-xl bg-gradient-to-r from-purple-500 to-pink-500 text-white font-medium disabled:opacity-30">
               {saving ? '...' : 'Add Member'}
             </button>
+          </div>
+        </section>
+
+        {/* ====== APP VISIBILITY ====== */}
+        <section className="glass rounded-2xl p-6">
+          <h2 className="text-xl font-bold mb-2">👁️ App Visibility</h2>
+          <p className="text-white/40 text-sm mb-6">Turn apps on or off on the home page</p>
+          <div className="space-y-3">
+            {(() => {
+              let visibility: Record<string, boolean> = {};
+              if (config?.appVisibilityJson) try { visibility = JSON.parse(config.appVisibilityJson); } catch {}
+
+              return FAMILY_APPS.map((app) => {
+                const isVisible = visibility[app.id] !== false; // default true
+                return (
+                  <div key={app.id} className="flex items-center justify-between p-3 bg-white/[0.02] rounded-xl">
+                    <div className="flex items-center gap-3">
+                      <span className="text-xl">{app.icon}</span>
+                      <span className={`text-sm font-medium ${isVisible ? 'text-white' : 'text-white/30'}`}>{app.name}</span>
+                      {app.status === 'coming-soon' && <span className="text-[10px] text-white/20 bg-white/5 px-2 py-0.5 rounded">Coming Soon</span>}
+                    </div>
+                    <button
+                      onClick={() => {
+                        const updated = { ...visibility, [app.id]: !isVisible };
+                        apiCall({ config: { appVisibilityJson: JSON.stringify(updated) } });
+                      }}
+                      className={`w-11 h-6 rounded-full transition-colors relative ${isVisible ? 'bg-emerald-500' : 'bg-white/15'}`}>
+                      <span className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-transform ${isVisible ? 'left-6' : 'left-1'}`} />
+                    </button>
+                  </div>
+                );
+              });
+            })()}
+          </div>
+        </section>
+
+        {/* ====== LOCATIONS ====== */}
+        <section className="glass rounded-2xl p-6">
+          <h2 className="text-xl font-bold mb-2">📍 Locations</h2>
+          <p className="text-white/40 text-sm mb-4">Cities for local event discovery</p>
+          <div className="space-y-2 mb-4">
+            {(() => {
+              let locs: string[] = [];
+              if (config?.locationsJson) try { locs = JSON.parse(config.locationsJson!); } catch {}
+              return locs.map((city: string, i: number) => (
+                <div key={i} className="flex items-center justify-between p-3 bg-white/[0.02] rounded-xl">
+                  <span className="text-sm">📍 {city}</span>
+                  <button onClick={() => {
+                    const updated = locs.filter((_, j) => j !== i);
+                    apiCall({ config: { locationsJson: JSON.stringify(updated) } });
+                  }} className="text-white/20 hover:text-red-400 text-xs">Remove</button>
+                </div>
+              ));
+            })()}
+          </div>
+          <div className="flex gap-2">
+            <input type="text" id="new-location" placeholder="City, State or City, Country..."
+              className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-white text-sm placeholder-white/30 focus:outline-none" />
+            <button onClick={() => {
+              const input = document.getElementById('new-location') as HTMLInputElement;
+              if (!input.value.trim()) return;
+              let locs: string[] = [];
+              if (config?.locationsJson) try { locs = JSON.parse(config.locationsJson); } catch {}
+              apiCall({ config: { locationsJson: JSON.stringify([...locs, input.value.trim()]) } });
+              input.value = '';
+            }} className="px-4 py-2 rounded-xl bg-violet-500/20 text-violet-400 text-sm font-medium">Add</button>
           </div>
         </section>
 

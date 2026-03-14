@@ -62,7 +62,7 @@ export const FAMILY_APPS: FamilyApp[] = [
     gradient: 'from-violet-500 via-purple-500 to-fuchsia-500',
     glowClass: 'glow-purple',
     accentColor: '#8B5CF6',
-    status: 'coming-soon',
+    status: 'live',
   },
   {
     id: 'todos',

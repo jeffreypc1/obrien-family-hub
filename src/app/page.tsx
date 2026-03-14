@@ -14,6 +14,7 @@ interface HubConfig {
   heroCopy: string;
   heroIcon: string;
   fontPrimary: string;
+  appVisibilityJson?: string | null;
 }
 
 export default function Home() {
@@ -46,8 +47,14 @@ export default function Home() {
     document.body.style.fontFamily = `"${fontName}", sans-serif`;
   }, [config?.fontPrimary]);
 
-  const liveApps = FAMILY_APPS.filter((a) => a.status === 'live');
-  const comingSoon = FAMILY_APPS.filter((a) => a.status === 'coming-soon');
+  // Filter by visibility settings
+  const visibility: Record<string, boolean> = {};
+  if (config?.appVisibilityJson) {
+    try { Object.assign(visibility, JSON.parse(config.appVisibilityJson!)); } catch {}
+  }
+  const visibleApps = FAMILY_APPS.filter((a) => visibility[a.id] !== false);
+  const liveApps = visibleApps.filter((a) => a.status === 'live');
+  const comingSoon = visibleApps.filter((a) => a.status === 'coming-soon');
 
   // If no member selected, show hero + prompt (no apps)
   if (!currentMember) {

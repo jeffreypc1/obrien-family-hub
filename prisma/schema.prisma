@@ -135,6 +135,32 @@ model ShoppingList {
   updatedAt  DateTime @updatedAt
 }
 
+// ==================== EVENTS ====================
+
+model CalendarEvent {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  emoji       String   @default("📅")
+  date        String
+  recurring   String?
+  createdBy   String?
+  createdAt   DateTime @default(now())
+}
+
+model LocalEvent {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  date        String?
+  venue       String?
+  city        String
+  url         String?
+  source      String?
+  imageUrl    String?
+  createdAt   DateTime @default(now())
+}
+
 // ==================== TODOS ====================
 
 model TodoItem {
