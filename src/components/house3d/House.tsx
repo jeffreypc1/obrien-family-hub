@@ -14,20 +14,42 @@ interface RoomZone {
   glowColor: string;
 }
 
-export const ROOM_ZONES: RoomZone[] = [
-  { id: 'kitchen', label: '🍳 Kitchen', app: '/recipes', position: [2.2, 1.2, 2.6], size: [1.8, 1.5, 0.3], color: '#FF6B35', glowColor: '#FF8C5A' },
-  { id: 'living', label: '📺 Living Room', app: '/german', position: [-2.2, 1.2, 2.6], size: [1.8, 1.5, 0.3], color: '#4A90D9', glowColor: '#6DB3F8' },
-  { id: 'attic', label: '🎤 Music Room', app: 'https://eurovision-family.vercel.app', position: [0, 4.2, 2.6], size: [1.5, 1, 0.3], color: '#E91E8C', glowColor: '#FF4DA6' },
-  { id: 'garage', label: '✅ Garage', app: '/todos', position: [5, 0.9, 2.6], size: [2.2, 1.5, 0.3], color: '#10B981', glowColor: '#34D399' },
-  { id: 'door', label: '📅 Front Door', app: '/events', position: [0, 0.9, 2.7], size: [1, 2, 0.3], color: '#8B5CF6', glowColor: '#A78BFA' },
-  { id: 'garden', label: '✈️ Garden', app: '/travel', position: [-5, 0.2, 4], size: [2.5, 1.5, 2], color: '#06B6D4', glowColor: '#22D3EE' },
-  { id: 'porch', label: '💡 Porch Light', app: '/recommendations', position: [0, 2.5, 3.5], size: [1.5, 1, 1], color: '#F59E0B', glowColor: '#FBBF24' },
-  { id: 'mailbox', label: '📸 Photos', app: '/photos', position: [3.5, 0.4, 5.5], size: [1, 1.2, 1], color: '#F43F5E', glowColor: '#FB7185' },
+// Fixed geometry — positions, sizes, colors are tied to the house model
+const ROOM_GEOMETRY: Record<string, { position: [number, number, number]; size: [number, number, number]; color: string; glowColor: string }> = {
+  kitchen:  { position: [2.2, 1.2, 2.6], size: [1.8, 1.5, 0.3], color: '#FF6B35', glowColor: '#FF8C5A' },
+  living:   { position: [-2.2, 1.2, 2.6], size: [1.8, 1.5, 0.3], color: '#4A90D9', glowColor: '#6DB3F8' },
+  attic:    { position: [0, 4.2, 2.6], size: [1.5, 1, 0.3], color: '#E91E8C', glowColor: '#FF4DA6' },
+  garage:   { position: [5, 0.9, 2.6], size: [2.2, 1.5, 0.3], color: '#10B981', glowColor: '#34D399' },
+  door:     { position: [0, 0.9, 2.7], size: [1, 2, 0.3], color: '#8B5CF6', glowColor: '#A78BFA' },
+  garden:   { position: [-5, 0.2, 4], size: [2.5, 1.5, 2], color: '#06B6D4', glowColor: '#22D3EE' },
+  porch:    { position: [0, 2.5, 3.5], size: [1.5, 1, 1], color: '#F59E0B', glowColor: '#FBBF24' },
+  mailbox:  { position: [3.5, 0.4, 5.5], size: [1, 1.2, 1], color: '#F43F5E', glowColor: '#FB7185' },
+};
+
+// Default labels + apps (overridable from admin)
+const DEFAULT_MAPPINGS: Array<{ id: string; label: string; app: string }> = [
+  { id: 'kitchen', label: '🍳 Kitchen', app: '/recipes' },
+  { id: 'living', label: '📺 Living Room', app: '/german' },
+  { id: 'attic', label: '🎤 Music Room', app: 'https://eurovision-family.vercel.app' },
+  { id: 'garage', label: '✅ Garage', app: '/todos' },
+  { id: 'door', label: '📅 Front Door', app: '/events' },
+  { id: 'garden', label: '✈️ Garden', app: '/travel' },
+  { id: 'porch', label: '💡 Porch Light', app: '/recommendations' },
+  { id: 'mailbox', label: '📸 Mailbox', app: '/photos' },
 ];
 
-export default function House({ onRoomHover, onRoomClick }: {
+export function buildRoomZones(customMappings?: Array<{ id: string; label: string; app: string }> | null): RoomZone[] {
+  const mappings = customMappings || DEFAULT_MAPPINGS;
+  return mappings.map((m) => {
+    const geo = ROOM_GEOMETRY[m.id] || ROOM_GEOMETRY.door;
+    return { ...geo, id: m.id, label: m.label, app: m.app };
+  });
+}
+
+export default function House({ onRoomHover, onRoomClick, roomZones }: {
   onRoomHover: (room: string | null) => void;
   onRoomClick: (room: string) => void;
+  roomZones: RoomZone[];
 }) {
   return (
     <group position={[0, -1, 0]}>
@@ -259,7 +281,7 @@ export default function House({ onRoomHover, onRoomClick }: {
       ))}
 
       {/* ===== INTERACTIVE CLICK ZONES ===== */}
-      {ROOM_ZONES.map((room) => (
+      {roomZones.map((room) => (
         <mesh
           key={room.id}
           position={room.position}

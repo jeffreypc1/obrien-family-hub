@@ -17,7 +17,36 @@ interface HubConfig {
   heroCopy: string;
   heroIcon: string;
   fontPrimary: string;
+  roomMappingsJson: string | null;
 }
+
+interface RoomMapping {
+  id: string;
+  label: string;
+  app: string;
+}
+
+const DEFAULT_ROOM_MAPPINGS: RoomMapping[] = [
+  { id: 'kitchen', label: '🍳 Kitchen', app: '/recipes' },
+  { id: 'living', label: '📺 Living Room', app: '/german' },
+  { id: 'attic', label: '🎤 Music Room', app: 'https://eurovision-family.vercel.app' },
+  { id: 'garage', label: '✅ Garage', app: '/todos' },
+  { id: 'door', label: '📅 Front Door', app: '/events' },
+  { id: 'garden', label: '✈️ Garden', app: '/travel' },
+  { id: 'porch', label: '💡 Porch Light', app: '/recommendations' },
+  { id: 'mailbox', label: '📸 Mailbox', app: '/photos' },
+];
+
+const APP_OPTIONS = [
+  { value: '/recipes', label: '🍳 Family Recipes' },
+  { value: '/german', label: '🇩🇪 Learn German' },
+  { value: 'https://eurovision-family.vercel.app', label: '🎤 Eurovision Ranker' },
+  { value: '/todos', label: '✅ To Do List' },
+  { value: '/events', label: '📅 Events' },
+  { value: '/travel', label: '✈️ Travel' },
+  { value: '/recommendations', label: '💡 Recommendations' },
+  { value: '/photos', label: '📸 Photos' },
+];
 
 const EMOJIS = ['🎤', '🎵', '🌟', '✨', '🎸', '💃', '🕺', '🦄', '🔥', '💎', '🦋', '🌸', '⭐', '🎪', '🎭', '🧑‍🍳', '📚', '🎮'];
 const COLORS = ['#E91E8C', '#7B2FBE', '#1B8FE3', '#E8A317', '#2ECC71', '#E74C3C', '#F39C12', '#1ABC9C', '#9B59B6', '#3498DB'];
@@ -40,6 +69,7 @@ export default function AdminPage() {
   const [pin, setPin] = useState('');
   const [members, setMembers] = useState<FamilyMember[]>([]);
   const [config, setConfig] = useState<HubConfig | null>(null);
+  const [roomMappings, setRoomMappings] = useState<RoomMapping[]>(DEFAULT_ROOM_MAPPINGS);
   const [newName, setNewName] = useState('');
   const [newEmoji, setNewEmoji] = useState('🎤');
   const [newColor, setNewColor] = useState('#E91E8C');
@@ -50,7 +80,11 @@ export default function AdminPage() {
     const res = await fetch('/api/admin');
     const data = await res.json();
     setMembers(data.members || []);
-    setConfig(data.config || { heroTitle: "O'Brien", heroSubtitle: 'Family Hub', heroCopy: '', heroIcon: '🏠', fontPrimary: 'Outfit' });
+    const cfg = data.config || { heroTitle: "O'Brien", heroSubtitle: 'Family Hub', heroCopy: '', heroIcon: '🏠', fontPrimary: 'Outfit', roomMappingsJson: null };
+    setConfig(cfg);
+    if (cfg.roomMappingsJson) {
+      try { setRoomMappings(JSON.parse(cfg.roomMappingsJson)); } catch {}
+    }
   };
 
   useEffect(() => { fetchData(); }, []);
@@ -279,6 +313,68 @@ export default function AdminPage() {
               {saving ? 'Saving...' : 'Save Changes'}
             </button>
           </div>
+        </section>
+
+        {/* ====== 3D HOUSE ROOM MAPPINGS ====== */}
+        <section className="glass rounded-2xl p-6">
+          <h2 className="text-xl font-bold mb-2">🏡 3D House Room Mappings</h2>
+          <p className="text-white/40 text-sm mb-6">Choose what each room/area of the 3D house links to</p>
+
+          <div className="space-y-3">
+            {roomMappings.map((room, idx) => (
+              <div key={room.id} className="flex items-center gap-4 p-4 bg-white/[0.02] rounded-xl">
+                {/* Room location (fixed) */}
+                <div className="w-28 flex-shrink-0">
+                  <span className="text-xs text-white/25 uppercase tracking-wider">
+                    {room.id === 'kitchen' ? 'Right Window' :
+                     room.id === 'living' ? 'Left Window' :
+                     room.id === 'attic' ? 'Attic Window' :
+                     room.id === 'garage' ? 'Garage' :
+                     room.id === 'door' ? 'Front Door' :
+                     room.id === 'garden' ? 'Garden' :
+                     room.id === 'porch' ? 'Porch' :
+                     room.id === 'mailbox' ? 'Mailbox' : room.id}
+                  </span>
+                </div>
+
+                {/* Label (editable) */}
+                <input
+                  type="text"
+                  value={room.label}
+                  onChange={(e) => {
+                    const updated = [...roomMappings];
+                    updated[idx] = { ...updated[idx], label: e.target.value };
+                    setRoomMappings(updated);
+                  }}
+                  className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-purple-500"
+                />
+
+                {/* App selector */}
+                <span className="text-white/20 text-xs">→</span>
+                <select
+                  value={room.app}
+                  onChange={(e) => {
+                    const updated = [...roomMappings];
+                    updated[idx] = { ...updated[idx], app: e.target.value };
+                    setRoomMappings(updated);
+                  }}
+                  className="bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:outline-none [&>option]:bg-gray-900 min-w-[180px]"
+                >
+                  {APP_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
+                </select>
+              </div>
+            ))}
+          </div>
+
+          <button
+            onClick={() => apiCall({ config: { roomMappingsJson: JSON.stringify(roomMappings) } })}
+            disabled={saving}
+            className="mt-4 px-6 py-3 rounded-xl bg-gradient-to-r from-purple-500 to-pink-500 text-white font-medium disabled:opacity-30"
+          >
+            {saving ? 'Saving...' : 'Save Room Mappings'}
+          </button>
         </section>
       </div>
     </div>

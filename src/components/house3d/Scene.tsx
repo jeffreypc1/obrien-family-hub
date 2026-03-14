@@ -5,7 +5,7 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { Stars, Html } from '@react-three/drei';
 import { EffectComposer, Bloom, Vignette } from '@react-three/postprocessing';
 import * as THREE from 'three';
-import House, { ROOM_ZONES } from './House';
+import House, { buildRoomZones } from './House';
 import UFO from './UFO';
 
 function CameraController({ phase, progress, onPhaseComplete }: {
@@ -67,12 +67,12 @@ function Ground() {
   );
 }
 
-function RoomLabels({ hoveredRoom, onNavigate }: {
-  hoveredRoom: string | null; onNavigate: (url: string) => void;
+function RoomLabels({ hoveredRoom, onNavigate, zones }: {
+  hoveredRoom: string | null; onNavigate: (url: string) => void; zones: ReturnType<typeof buildRoomZones>;
 }) {
   return (
     <>
-      {ROOM_ZONES.map((room) => {
+      {zones.map((room) => {
         const isActive = hoveredRoom === room.id;
         return (
           <group key={room.id} position={[room.position[0], room.position[1] + 1, room.position[2] + 0.3]}>
@@ -135,6 +135,19 @@ export default function HouseScene({ onNavigate, skipIntro = false }: HouseScene
   const [hoveredRoom, setHoveredRoom] = useState<string | null>(null);
   const [showHouse, setShowHouse] = useState(skipIntro);
   const startTime = useRef(Date.now());
+  const [roomZones, setRoomZones] = useState(buildRoomZones());
+
+  // Load custom room mappings from admin config
+  useEffect(() => {
+    fetch('/api/admin').then((r) => r.json()).then((data) => {
+      if (data.config?.roomMappingsJson) {
+        try {
+          const mappings = JSON.parse(data.config.roomMappingsJson);
+          setRoomZones(buildRoomZones(mappings));
+        } catch {}
+      }
+    }).catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (phase === 'idle' || phase === 'gone') return;
@@ -207,8 +220,8 @@ export default function HouseScene({ onNavigate, skipIntro = false }: HouseScene
         <Ground />
 
         {/* House */}
-        {showHouse && <House onRoomHover={setHoveredRoom} onRoomClick={(id) => {
-          const room = ROOM_ZONES.find((r) => r.id === id);
+        {showHouse && <House onRoomHover={setHoveredRoom} roomZones={roomZones} onRoomClick={(id) => {
+          const room = roomZones.find((r) => r.id === id);
           if (room) onNavigate(room.app);
         }} />}
 
@@ -217,7 +230,7 @@ export default function HouseScene({ onNavigate, skipIntro = false }: HouseScene
 
         {/* Room labels */}
         {phase === 'idle' && (
-          <RoomLabels hoveredRoom={hoveredRoom} onNavigate={onNavigate} />
+          <RoomLabels hoveredRoom={hoveredRoom} onNavigate={onNavigate} zones={roomZones} />
         )}
 
         {/* Post processing */}
