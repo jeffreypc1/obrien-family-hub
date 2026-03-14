@@ -2,53 +2,37 @@
 
 import { useState, useRef, useEffect, useCallback, Suspense } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { Stars, Html, Cloud, Environment } from '@react-three/drei';
+import { Stars, Html, Cloud, Environment, OrbitControls } from '@react-three/drei';
 import { EffectComposer, Bloom, Vignette } from '@react-three/postprocessing';
 import * as THREE from 'three';
 import House, { buildRoomZones } from './House';
 
-// Cinematic camera sweep around the house
-function CameraController({ intro, introProgress, onIntroComplete }: {
+// Cinematic intro sweep, then user takes control
+function CameraIntro({ intro, introProgress, onIntroComplete }: {
   intro: boolean; introProgress: number; onIntroComplete: () => void;
 }) {
   const { camera } = useThree();
-  const targetPos = useRef(new THREE.Vector3(6, 4, 14));
-  const targetLook = useRef(new THREE.Vector3(0, 2, 0));
 
-  useFrame(({ clock }) => {
-    if (intro) {
-      const p = Math.min(introProgress, 1);
-      const e = 1 - Math.pow(1 - p, 2); // ease-out
+  useFrame(() => {
+    if (!intro) return;
+    const p = Math.min(introProgress, 1);
+    const e = 1 - Math.pow(1 - p, 2);
 
-      // Cinematic arc: start high and far, sweep down and around
-      const angle = e * 0.8; // sweep about 45 degrees
-      const radius = 22 - e * 8;
-      const height = 10 - e * 6;
-      targetPos.current.set(
-        Math.sin(angle) * radius,
-        height,
-        Math.cos(angle) * radius
-      );
-      targetLook.current.set(0, 2 - e * 0.5, 0);
+    const angle = e * 0.8;
+    const radius = 22 - e * 8;
+    const height = 10 - e * 6;
 
-      if (p >= 1) onIntroComplete();
-    } else {
-      // Gentle idle orbit
-      const t = clock.elapsedTime * 0.03;
-      targetPos.current.set(
-        Math.sin(t) * 14 + 2,
-        3.5 + Math.sin(t * 0.5) * 0.3,
-        Math.cos(t) * 14 + 2
-      );
-      targetLook.current.set(0, 1.5, 0);
-    }
+    const targetPos = new THREE.Vector3(
+      Math.sin(angle) * radius,
+      height,
+      Math.cos(angle) * radius
+    );
+    const targetLook = new THREE.Vector3(0, 2 - e * 0.5, 0);
 
-    camera.position.lerp(targetPos.current, intro ? 0.05 : 0.015);
-    const dir = targetLook.current.clone().sub(camera.position).normalize();
-    const currentDir = new THREE.Vector3();
-    camera.getWorldDirection(currentDir);
-    currentDir.lerp(dir, intro ? 0.05 : 0.015);
-    camera.lookAt(camera.position.clone().add(currentDir.multiplyScalar(10)));
+    camera.position.lerp(targetPos, 0.05);
+    camera.lookAt(targetLook);
+
+    if (p >= 1) onIntroComplete();
   });
 
   return null;
@@ -123,11 +107,18 @@ function RoomLabels({ hoveredRoom, onNavigate, zones }: {
   );
 }
 
+// Wrapper that signals when House has loaded
+function HouseWrapper(props: Parameters<typeof House>[0] & { onLoaded: () => void }) {
+  const { onLoaded, ...houseProps } = props;
+  useEffect(() => { onLoaded(); }, [onLoaded]);
+  return <House {...houseProps} />;
+}
+
 interface HouseSceneProps {
   onNavigate: (url: string) => void;
 }
 
-function SceneContent({ onNavigate }: HouseSceneProps) {
+function SceneContent({ onNavigate, onLoaded }: HouseSceneProps & { onLoaded: () => void }) {
   const [intro, setIntro] = useState(true);
   const [introProgress, setIntroProgress] = useState(0);
   const [hoveredRoom, setHoveredRoom] = useState<string | null>(null);
@@ -180,14 +171,30 @@ function SceneContent({ onNavigate }: HouseSceneProps) {
       <pointLight position={[-8, 4, 8]} color="#FFDD88" intensity={2} distance={15} decay={2} />
       <pointLight position={[8, 4, 8]} color="#FFDD88" intensity={1.5} distance={12} decay={2} />
 
-      <CameraController intro={intro} introProgress={introProgress} onIntroComplete={handleIntroComplete} />
+      <CameraIntro intro={intro} introProgress={introProgress} onIntroComplete={handleIntroComplete} />
+
+      {/* User-controlled orbit after intro */}
+      {!intro && (
+        <OrbitControls
+          target={[0, 1.5, 0]}
+          enablePan={true}
+          enableZoom={true}
+          enableRotate={true}
+          minDistance={5}
+          maxDistance={30}
+          maxPolarAngle={Math.PI / 2.1}
+          minPolarAngle={0.2}
+          autoRotate={true}
+          autoRotateSpeed={0.3}
+        />
+      )}
 
       {/* House model */}
       <Suspense fallback={null}>
-        <House onRoomHover={setHoveredRoom} roomZones={roomZones} onRoomClick={(id) => {
+        <HouseWrapper onRoomHover={setHoveredRoom} roomZones={roomZones} onRoomClick={(id) => {
           const room = roomZones.find((r) => r.id === id);
           if (room) onNavigate(room.app);
-        }} />
+        }} onLoaded={onLoaded} />
       </Suspense>
 
       {/* Room labels (only after intro) */}
@@ -202,6 +209,8 @@ function SceneContent({ onNavigate }: HouseSceneProps) {
 }
 
 export default function HouseScene({ onNavigate }: HouseSceneProps) {
+  const [loaded, setLoaded] = useState(false);
+
   return (
     <div className="w-full h-screen relative bg-[#030308]">
       <Canvas
@@ -210,7 +219,7 @@ export default function HouseScene({ onNavigate }: HouseSceneProps) {
         gl={{ antialias: true, toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1.3 }}
       >
         <Suspense fallback={null}>
-          <SceneContent onNavigate={onNavigate} />
+          <SceneContent onNavigate={onNavigate} onLoaded={() => setLoaded(true)} />
         </Suspense>
       </Canvas>
 
@@ -222,20 +231,24 @@ export default function HouseScene({ onNavigate }: HouseSceneProps) {
         </button>
       </div>
 
-      {/* Instruction */}
-      <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-20">
-        <p className="text-white/25 text-sm bg-black/40 backdrop-blur-sm rounded-2xl px-6 py-3 border border-white/5">
-          ✨ Hover over the house to explore rooms · Click to enter
-        </p>
-      </div>
-
-      {/* Loading indicator */}
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-10 pointer-events-none" id="house-loader">
-        <div className="text-center">
-          <div className="text-5xl mb-4 animate-pulse">🏠</div>
-          <p className="text-white/30 text-sm">Loading house...</p>
+      {/* Instruction (only after loaded) */}
+      {loaded && (
+        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-20">
+          <p className="text-white/25 text-sm bg-black/40 backdrop-blur-sm rounded-2xl px-6 py-3 border border-white/5">
+            ✨ Drag to look around · Scroll to zoom · Hover rooms to enter
+          </p>
         </div>
-      </div>
+      )}
+
+      {/* Loading indicator — hidden once model loads */}
+      {!loaded && (
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-10 pointer-events-none">
+          <div className="text-center">
+            <div className="text-5xl mb-4 animate-pulse">🏠</div>
+            <p className="text-white/30 text-sm">Loading house...</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

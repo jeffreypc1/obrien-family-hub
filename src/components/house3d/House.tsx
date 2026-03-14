@@ -106,17 +106,6 @@ export default function House({ onRoomHover, onRoomClick, roomZones }: {
       <pointLight position={[-3, 2, 3]} color="#FFDD77" intensity={1.5} distance={5} decay={2} />
       <pointLight position={[3, 2, 3]} color="#FFDD77" intensity={1.5} distance={5} decay={2} />
 
-      {/* Garden flowers */}
-      {Array.from({ length: 12 }).map((_, i) => (
-        <mesh key={i} position={[-5 + (i % 4) * 0.5, 0.06, 4 + Math.floor(i / 4) * 0.4]}>
-          <sphereGeometry args={[0.06, 8, 8]} />
-          <meshStandardMaterial
-            color={['#FF6B8A', '#FFD93D', '#FF8C42', '#C084FC', '#60A5FA', '#34D399', '#F472B6', '#FBBF24', '#FB923C', '#A78BFA', '#2DD4BF', '#F87171'][i]}
-            emissive={['#FF6B8A', '#FFD93D', '#FF8C42', '#C084FC', '#60A5FA', '#34D399', '#F472B6', '#FBBF24', '#FB923C', '#A78BFA', '#2DD4BF', '#F87171'][i]}
-            emissiveIntensity={0.3}
-          />
-        </mesh>
-      ))}
 
       {/* Interactive room zones */}
       {roomZones.map((room) => (
