@@ -22,7 +22,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className={outfit.variable}>
-      <body className="font-outfit">
+      <body style={{ fontFamily: 'var(--dynamic-font, var(--font-outfit), sans-serif)' }}>
         <FamilyProvider>
           <FamilyPicker />
           {children}

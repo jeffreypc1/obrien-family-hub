@@ -54,6 +54,15 @@ export default function AdminPage() {
 
   useEffect(() => { fetchData(); }, []);
 
+  // Load ALL font options so previews work
+  useEffect(() => {
+    const families = FONT_OPTIONS.map((f) => `family=${f.value.replace(/ /g, '+')}:wght@400;600;700`).join('&');
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = `https://fonts.googleapis.com/css2?${families}&display=swap`;
+    document.head.appendChild(link);
+  }, []);
+
   const apiCall = async (body: Record<string, unknown>) => {
     setSaving(true);
     const res = await fetch('/api/admin', {
@@ -190,7 +199,6 @@ export default function AdminPage() {
                     ? 'bg-purple-500/15 border border-purple-500/30 ring-1 ring-purple-500/20'
                     : 'bg-white/[0.02] border border-white/5 hover:bg-white/[0.05]'
                 }`}>
-                <link href={`https://fonts.googleapis.com/css2?family=${font.value.replace(/ /g, '+')}:wght@400;600;700&display=swap`} rel="stylesheet" />
                 <span className="text-lg font-bold" style={{ fontFamily: `"${font.value}", sans-serif` }}>{font.label}</span>
                 <span className="text-xs text-white/30 ml-2">{font.preview}</span>
                 <p className="mt-1 text-sm text-white/50" style={{ fontFamily: `"${font.value}", sans-serif` }}>
