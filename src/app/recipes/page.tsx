@@ -134,7 +134,7 @@ export default function RecipesPage() {
         {/* Hero */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="text-center mb-12">
           <div className="text-6xl mb-4">👨‍🍳</div>
-          <h1 className="text-5xl font-fredoka font-bold gradient-text bg-gradient-to-r from-orange-400 via-red-400 to-pink-400 mb-3">
+          <h1 className="text-5xl font-bold gradient-text bg-gradient-to-r from-orange-400 via-red-400 to-pink-400 mb-3">
             Family Recipes
           </h1>
           <p className="text-white/40 text-lg">Cook together, rate everything, build the family cookbook</p>

@@ -53,7 +53,7 @@ export default function AppCard({ app, index }: AppCardProps) {
           </div>
 
           {/* Title */}
-          <h3 className={`text-3xl md:text-4xl font-fredoka font-bold mb-2 gradient-text bg-gradient-to-r ${app.gradient}`}>
+          <h3 className={`text-3xl md:text-4xl font-bold mb-2 gradient-text bg-gradient-to-r ${app.gradient}`}>
             {app.name}
           </h3>
 

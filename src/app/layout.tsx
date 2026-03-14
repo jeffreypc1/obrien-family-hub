@@ -1,14 +1,8 @@
 import type { Metadata } from 'next';
-import { Fredoka, Outfit } from 'next/font/google';
+import { Outfit } from 'next/font/google';
 import './globals.css';
 import { FamilyProvider } from '@/components/FamilyContext';
 import FamilyPicker from '@/components/FamilyPicker';
-
-const fredoka = Fredoka({
-  subsets: ['latin'],
-  variable: '--font-fredoka',
-  display: 'swap',
-});
 
 const outfit = Outfit({
   subsets: ['latin'],
@@ -27,7 +21,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className={`${fredoka.variable} ${outfit.variable}`}>
+    <html lang="en" className={outfit.variable}>
       <body className="font-outfit">
         <FamilyProvider>
           <FamilyPicker />

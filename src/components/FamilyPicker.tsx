@@ -50,7 +50,7 @@ export default function FamilyPicker() {
               exit={{ scale: 0.9, y: 20 }}
               className="glass rounded-3xl p-8 max-w-lg w-full border border-white/10"
             >
-              <h2 className="text-2xl font-fredoka font-bold text-center mb-2">Who&apos;s here?</h2>
+              <h2 className="text-2xl font-bold text-center mb-2">Who&apos;s here?</h2>
               <p className="text-white/40 text-sm text-center mb-8">Pick your profile to get started</p>
 
               {/* Existing members */}

@@ -95,7 +95,7 @@ export default function GermanPage() {
           className="text-center mb-12"
         >
           <div className="text-6xl mb-4">🇩🇪</div>
-          <h1 className="text-5xl font-fredoka font-bold gradient-text bg-gradient-to-r from-yellow-400 via-red-400 to-yellow-400 mb-3">
+          <h1 className="text-5xl font-bold gradient-text bg-gradient-to-r from-yellow-400 via-red-400 to-yellow-400 mb-3">
             Learn German
           </h1>
           <p className="text-white/40 text-lg">

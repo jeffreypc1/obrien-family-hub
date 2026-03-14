@@ -239,7 +239,7 @@ function WatchPageContent() {
       </div>
 
       <div className="max-w-6xl mx-auto px-6 py-8">
-        <h1 className="text-2xl font-fredoka font-bold mb-6">{video.title}</h1>
+        <h1 className="text-2xl font-bold mb-6">{video.title}</h1>
 
         {/* YouTube Player */}
         <div className="relative aspect-video rounded-2xl overflow-hidden bg-black mb-4 shadow-2xl ring-1 ring-white/10">

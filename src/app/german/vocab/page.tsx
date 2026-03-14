@@ -50,7 +50,7 @@ export default function VocabPage() {
       <div className="min-h-screen flex items-center justify-center relative z-10">
         <div className="glass rounded-3xl p-10 max-w-md w-full text-center">
           <div className="text-5xl mb-4">📚</div>
-          <h1 className="text-2xl font-fredoka font-bold mb-2">My Vocabulary</h1>
+          <h1 className="text-2xl font-bold mb-2">My Vocabulary</h1>
           <p className="text-white/40 text-sm mb-6">Pick your profile to see your saved words</p>
           <button
             onClick={() => setShowPicker(true)}
@@ -78,7 +78,7 @@ export default function VocabPage() {
       <div className="max-w-4xl mx-auto px-6 py-12">
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-3xl font-fredoka font-bold">📚 My Vocabulary</h1>
+            <h1 className="text-3xl font-bold">📚 My Vocabulary</h1>
             <p className="text-white/40 text-sm mt-1">{vocab.length} words saved</p>
           </div>
           <div className="flex gap-2">
@@ -131,12 +131,12 @@ export default function VocabPage() {
                   >
                     {!showAnswer ? (
                       <div>
-                        <p className="text-4xl font-fredoka font-bold mb-2">{flashCards[flashIndex].germanWord}</p>
+                        <p className="text-4xl font-bold mb-2">{flashCards[flashIndex].germanWord}</p>
                         <p className="text-white/20 text-sm">What does this mean?</p>
                       </div>
                     ) : (
                       <div>
-                        <p className="text-3xl font-fredoka font-bold text-green-400 mb-2">{flashCards[flashIndex].englishWord}</p>
+                        <p className="text-3xl font-bold text-green-400 mb-2">{flashCards[flashIndex].englishWord}</p>
                         {flashCards[flashIndex].exampleSentence && (
                           <p className="text-white/30 text-sm italic mt-3">
                             &ldquo;{flashCards[flashIndex].exampleSentence}&rdquo;

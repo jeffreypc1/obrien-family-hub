@@ -115,7 +115,7 @@ export default function ShoppingPage() {
       <div className="min-h-screen flex items-center justify-center relative z-10">
         <div className="glass rounded-3xl p-10 max-w-md w-full text-center">
           <div className="text-5xl mb-4">🛒</div>
-          <h1 className="text-2xl font-fredoka font-bold mb-2">Shopping List</h1>
+          <h1 className="text-2xl font-bold mb-2">Shopping List</h1>
           <p className="text-white/40 text-sm mb-6">Pick your profile to see your list</p>
           <button onClick={() => setShowPicker(true)}
             className="px-6 py-3 rounded-xl bg-gradient-to-r from-orange-500 to-red-500 text-white font-medium">
@@ -138,7 +138,7 @@ export default function ShoppingPage() {
       <div className="max-w-4xl mx-auto px-6 py-12">
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-3xl font-fredoka font-bold">🛒 Shopping List</h1>
+            <h1 className="text-3xl font-bold">🛒 Shopping List</h1>
             <p className="text-white/40 text-sm mt-1">
               {items.length} items · {items.filter((i) => i.checked).length} checked off
             </p>
