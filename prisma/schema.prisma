@@ -135,6 +135,33 @@ model ShoppingList {
   updatedAt  DateTime @updatedAt
 }
 
+// ==================== RECOMMENDATIONS ====================
+
+model Recommendation {
+  id            String                    @id @default(cuid())
+  category      String
+  title         String
+  description   String?
+  imageUrl      String?
+  linkUrl       String?
+  linkLabel     String?
+  recommendedBy String
+  likes         Int                       @default(0)
+  likedByJson   String?
+  createdAt     DateTime                  @default(now())
+  comments      RecommendationComment[]
+}
+
+model RecommendationComment {
+  id               String         @id @default(cuid())
+  recommendationId String
+  recommendation   Recommendation @relation(fields: [recommendationId], references: [id], onDelete: Cascade)
+  authorName       String
+  authorEmoji      String?
+  text             String
+  createdAt        DateTime       @default(now())
+}
+
 // ==================== EVENTS ====================
 
 model CalendarEvent {

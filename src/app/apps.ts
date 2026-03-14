@@ -98,7 +98,7 @@ export const FAMILY_APPS: FamilyApp[] = [
     gradient: 'from-amber-500 via-yellow-500 to-orange-500',
     glowClass: 'glow-orange',
     accentColor: '#F59E0B',
-    status: 'coming-soon',
+    status: 'live',
   },
   {
     id: 'photos',
