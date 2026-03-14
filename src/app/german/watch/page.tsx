@@ -48,6 +48,8 @@ function WatchPageContent() {
   const [addedWords, setAddedWords] = useState<Set<string>>(new Set());
   const [showVocab, setShowVocab] = useState(false);
   const [playerReady, setPlayerReady] = useState(false);
+  const [fetchingTranscript, setFetchingTranscript] = useState(false);
+  const [fetchError, setFetchError] = useState('');
 
   const playerRef = useRef<YT.Player | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -157,6 +159,32 @@ function WatchPageContent() {
     setCurrentTime(time);
   }, []);
 
+  const fetchTranscript = async () => {
+    if (!video) return;
+    setFetchingTranscript(true);
+    setFetchError('');
+    try {
+      const res = await fetch('/api/german/fetch-transcript', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ videoId: video.id }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setFetchError(data.error || 'Failed to fetch transcript');
+      } else {
+        // Reload video data to get new segments
+        const updated = await fetch(`/api/german/transcript?videoId=${video.id}`);
+        const updatedData = await updated.json();
+        setVideo(updatedData);
+        setShowTranscript(true);
+      }
+    } catch (e) {
+      setFetchError(e instanceof Error ? e.message : 'Network error');
+    }
+    setFetchingTranscript(false);
+  };
+
   const addToVocab = async (item: VocabItem) => {
     if (!currentMember) {
       setShowPicker(true);
@@ -228,7 +256,7 @@ function WatchPageContent() {
 
         {/* Toggle buttons */}
         <div className="flex flex-wrap gap-3 mb-6">
-          {video.segments.length > 0 && (
+          {video.segments.length > 0 ? (
             <button
               onClick={() => setShowTranscript(!showTranscript)}
               className={`px-5 py-2.5 rounded-xl text-sm font-medium transition-all ${
@@ -237,7 +265,33 @@ function WatchPageContent() {
                   : 'bg-white/5 text-white/50 hover:text-white border border-white/10'
               }`}
             >
-              📜 {showTranscript ? 'Hide' : 'Show'} Transcript
+              📜 {showTranscript ? 'Hide' : 'Show'} Transcript ({video.segments.length} lines)
+            </button>
+          ) : (
+            <button
+              onClick={fetchTranscript}
+              disabled={fetchingTranscript}
+              className="px-5 py-2.5 rounded-xl text-sm font-medium transition-all bg-gradient-to-r from-yellow-500/20 to-red-500/20 border border-yellow-500/30 text-yellow-400 hover:from-yellow-500/30 hover:to-red-500/30 disabled:opacity-50"
+            >
+              {fetchingTranscript ? (
+                <span className="flex items-center gap-2">
+                  <span className="animate-spin">🔄</span> Fetching transcript + translating...
+                </span>
+              ) : (
+                '📜 Fetch Transcript & Translation'
+              )}
+            </button>
+          )}
+
+          {/* Refetch button when transcript exists */}
+          {video.segments.length > 0 && (
+            <button
+              onClick={fetchTranscript}
+              disabled={fetchingTranscript}
+              className="px-3 py-2.5 rounded-xl text-xs font-medium text-white/30 hover:text-white/60 bg-white/5 border border-white/10 transition-all disabled:opacity-50"
+              title="Re-fetch transcript from YouTube"
+            >
+              {fetchingTranscript ? '🔄' : '↻ Refetch'}
             </button>
           )}
 
@@ -269,6 +323,13 @@ function WatchPageContent() {
             </button>
           )}
         </div>
+
+        {/* Fetch error */}
+        {fetchError && (
+          <div className="mb-4 px-4 py-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
+            {fetchError}
+          </div>
+        )}
 
         {/* Transcript panel — full width */}
         <AnimatePresence>
