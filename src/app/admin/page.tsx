@@ -29,7 +29,7 @@ interface RoomMapping {
 const DEFAULT_ROOM_MAPPINGS: RoomMapping[] = [
   { id: 'kitchen', label: '🍳 Kitchen', app: '/recipes' },
   { id: 'living', label: '📺 Living Room', app: '/german' },
-  { id: 'attic', label: '🎤 Music Room', app: 'https://eurovision-family.vercel.app' },
+  { id: 'inlaw', label: '🎤 In-Law Suite', app: 'https://eurovision-family.vercel.app' },
   { id: 'garage', label: '✅ Garage', app: '/todos' },
   { id: 'door', label: '📅 Front Door', app: '/events' },
   { id: 'garden', label: '✈️ Garden', app: '/travel' },
@@ -328,7 +328,7 @@ export default function AdminPage() {
                   <span className="text-xs text-white/25 uppercase tracking-wider">
                     {room.id === 'kitchen' ? 'Right Window' :
                      room.id === 'living' ? 'Left Window' :
-                     room.id === 'attic' ? 'Attic Window' :
+                     room.id === 'inlaw' ? 'In-Law Suite' :
                      room.id === 'garage' ? 'Garage' :
                      room.id === 'door' ? 'Front Door' :
                      room.id === 'garden' ? 'Garden' :

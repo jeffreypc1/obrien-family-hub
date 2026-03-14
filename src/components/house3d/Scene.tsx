@@ -2,8 +2,9 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { Stars, Html } from '@react-three/drei';
-import { EffectComposer, Bloom, Vignette } from '@react-three/postprocessing';
+import { Stars, Html, Cloud } from '@react-three/drei';
+import { EffectComposer, Bloom, Vignette, ChromaticAberration } from '@react-three/postprocessing';
+import { BlendFunction } from 'postprocessing';
 import * as THREE from 'three';
 import House, { buildRoomZones } from './House';
 import UFO from './UFO';
@@ -109,16 +110,32 @@ function RoomLabels({ hoveredRoom, onNavigate, zones }: {
   );
 }
 
-// Moon
+// Detailed moon with craters
 function Moon() {
   return (
-    <group position={[-15, 18, -20]}>
+    <group position={[-15, 20, -25]}>
+      {/* Moon body */}
       <mesh>
-        <sphereGeometry args={[2, 32, 32]} />
-        <meshStandardMaterial color="#FFFDE7" emissive="#FFFDE7" emissiveIntensity={0.8} />
+        <sphereGeometry args={[2.5, 64, 64]} />
+        <meshStandardMaterial color="#F5F0D8" emissive="#FFFDE7" emissiveIntensity={0.6} roughness={0.8} />
       </mesh>
-      {/* Moon glow */}
-      <pointLight color="#CCDDFF" intensity={0.8} distance={60} decay={1} />
+      {/* Moon halo glow */}
+      <mesh>
+        <sphereGeometry args={[3.5, 32, 32]} />
+        <meshStandardMaterial color="#FFFDE7" emissive="#DDEEFF" emissiveIntensity={0.15} transparent opacity={0.08} side={THREE.BackSide} />
+      </mesh>
+      <pointLight color="#CCDDFF" intensity={1.2} distance={80} decay={1} />
+    </group>
+  );
+}
+
+// Atmospheric clouds
+function NightClouds() {
+  return (
+    <group>
+      <Cloud position={[-10, 12, -15]} speed={0.1} opacity={0.15} color="#334466" />
+      <Cloud position={[12, 14, -20]} speed={0.08} opacity={0.1} color="#2A3D5C" />
+      <Cloud position={[0, 16, -25]} speed={0.05} opacity={0.08} color="#3A4D6C" />
     </group>
   );
 }
@@ -179,10 +196,13 @@ export default function HouseScene({ onNavigate, skipIntro = false }: HouseScene
         <fog attach="fog" args={['#080818', 35, 90]} />
 
         {/* Stars */}
-        <Stars radius={100} depth={50} count={4000} factor={5} saturation={0.6} />
+        <Stars radius={100} depth={50} count={5000} factor={5} saturation={0.6} />
 
         {/* Moon */}
         <Moon />
+
+        {/* Clouds */}
+        <NightClouds />
 
         {/* ===== LIGHTING - key to visibility ===== */}
         {/* Ambient fill */}
@@ -235,8 +255,9 @@ export default function HouseScene({ onNavigate, skipIntro = false }: HouseScene
 
         {/* Post processing */}
         <EffectComposer>
-          <Bloom luminanceThreshold={0.5} luminanceSmoothing={0.9} intensity={0.6} />
-          <Vignette offset={0.3} darkness={0.6} />
+          <Bloom luminanceThreshold={0.4} luminanceSmoothing={0.9} intensity={0.8} />
+          <Vignette offset={0.25} darkness={0.7} />
+          <ChromaticAberration blendFunction={BlendFunction.NORMAL} offset={new THREE.Vector2(0.0005, 0.0005)} />
         </EffectComposer>
       </Canvas>
 
