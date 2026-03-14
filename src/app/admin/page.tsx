@@ -180,7 +180,7 @@ export default function AdminPage() {
   }
 
   return (
-    <div className="min-h-screen relative z-10">
+    <div className="min-h-screen relative">
       <div className="border-b border-white/5">
         <div className="max-w-4xl mx-auto px-6 py-4 flex items-center justify-between">
           <Link href="/" className="text-white/40 hover:text-white/80 transition-colors text-sm">← Back to Hub</Link>

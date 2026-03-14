@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import Starfield from '@/components/Starfield';
 import CursorTrail from '@/components/CursorTrail';
@@ -19,19 +18,8 @@ interface HubConfig {
 
 export default function Home() {
   const { currentMember, setShowPicker } = useFamilyMember();
-  const router = useRouter();
   const [config, setConfig] = useState<HubConfig | null>(null);
-  const [checkedLanding, setCheckedLanding] = useState(false);
   const year = new Date().getFullYear();
-
-  // Redirect to 3D house if member prefers it
-  useEffect(() => {
-    if (currentMember?.landingMode === '3d-house') {
-      router.push('/home-3d');
-    } else {
-      setCheckedLanding(true);
-    }
-  }, [currentMember, router]);
 
   useEffect(() => {
     fetch('/api/admin').then((r) => r.json()).then((data) => {
@@ -108,6 +96,14 @@ export default function Home() {
       <CursorTrail />
 
       <div className="relative z-10">
+        {/* 3D House mode button */}
+        <div className="absolute top-6 right-6 z-20">
+          <Link href="/home-3d"
+            className="px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-white/30 hover:text-white hover:bg-white/10 text-xs transition-all flex items-center gap-2">
+            🏡 3D House
+          </Link>
+        </div>
+
         {/* ============ HERO (compact when member selected) ============ */}
         <section className="pt-20 pb-12 flex flex-col items-center px-6 relative">
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] rounded-full bg-purple-500/5 blur-[120px] pointer-events-none" />

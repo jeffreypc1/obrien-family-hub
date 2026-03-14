@@ -136,7 +136,7 @@ export default function TodosPage() {
   }
 
   return (
-    <div className="min-h-screen relative z-10">
+    <div className="min-h-screen relative">
       <ThemedBackground theme="todos" />
 
       <div className="border-b border-white/5">

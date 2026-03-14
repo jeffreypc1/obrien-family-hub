@@ -222,7 +222,7 @@ function WatchPageContent() {
   }
 
   return (
-    <div className="min-h-screen relative z-10"><ThemedBackground theme="german" />
+    <div className="min-h-screen relative"><ThemedBackground theme="german" />
       {/* Header */}
       <div className="border-b border-white/5">
         <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">

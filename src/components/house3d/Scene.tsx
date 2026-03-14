@@ -73,33 +73,55 @@ function RoomLabels({ hoveredRoom, onNavigate, zones }: {
       {zones.map((room) => {
         const isActive = hoveredRoom === room.id;
         return (
-          <group key={room.id} position={[room.position[0], room.position[1] + 1.2, room.position[2] + 0.3]}>
-            <Html center distanceFactor={10} style={{ pointerEvents: 'auto' }}>
-              <div
-                onClick={(e) => { e.stopPropagation(); onNavigate(room.app); }}
-                className={`cursor-pointer select-none transition-all duration-300 ${
-                  isActive ? 'opacity-100 scale-100' : 'opacity-0 scale-75 pointer-events-none'
-                }`}
-                style={{
-                  background: `linear-gradient(135deg, ${room.color}EE, ${room.color}AA)`,
-                  padding: '12px 22px',
-                  borderRadius: '14px',
-                  color: 'white',
-                  fontWeight: 700,
-                  fontSize: '16px',
-                  whiteSpace: 'nowrap',
-                  boxShadow: `0 6px 30px ${room.color}80, 0 0 60px ${room.color}30`,
-                  border: `1px solid rgba(255,255,255,0.25)`,
-                  backdropFilter: 'blur(10px)',
-                  textShadow: '0 1px 3px rgba(0,0,0,0.4)',
-                }}
-              >
-                {room.label}
-                <span style={{ display: 'block', fontSize: '11px', opacity: 0.7, marginTop: '2px', fontWeight: 400 }}>
-                  Click to enter →
-                </span>
-              </div>
-            </Html>
+          <group key={room.id}>
+            {/* Glowing marker light pinned to the house */}
+            <mesh position={[room.position[0], room.position[1] + 0.3, room.position[2] + 0.15]}>
+              <sphereGeometry args={[0.08, 12, 12]} />
+              <meshStandardMaterial
+                color={room.color}
+                emissive={room.color}
+                emissiveIntensity={isActive ? 3 : 1}
+                transparent
+                opacity={isActive ? 1 : 0.6}
+              />
+            </mesh>
+            {/* Small point light at marker */}
+            <pointLight
+              position={[room.position[0], room.position[1] + 0.3, room.position[2] + 0.3]}
+              color={room.color}
+              intensity={isActive ? 2 : 0.3}
+              distance={isActive ? 4 : 2}
+              decay={2}
+            />
+
+            {/* Label appears on hover, pinned just above the marker */}
+            <group position={[room.position[0], room.position[1] + 0.7, room.position[2] + 0.2]}>
+              <Html center distanceFactor={12} style={{ pointerEvents: 'auto' }}>
+                <div
+                  onClick={(e) => { e.stopPropagation(); onNavigate(room.app); }}
+                  className={`cursor-pointer select-none transition-all duration-300 ${
+                    isActive ? 'opacity-100 scale-100 translate-y-0' : 'opacity-0 scale-90 translate-y-1 pointer-events-none'
+                  }`}
+                  style={{
+                    background: `rgba(0,0,0,0.75)`,
+                    padding: '8px 16px',
+                    borderRadius: '10px',
+                    color: 'white',
+                    fontWeight: 600,
+                    fontSize: '13px',
+                    whiteSpace: 'nowrap',
+                    boxShadow: `0 4px 20px rgba(0,0,0,0.5), 0 0 20px ${room.color}40`,
+                    borderLeft: `3px solid ${room.color}`,
+                    backdropFilter: 'blur(8px)',
+                  }}
+                >
+                  {room.label}
+                  <span style={{ display: 'block', fontSize: '10px', opacity: 0.5, marginTop: '1px' }}>
+                    Click to enter
+                  </span>
+                </div>
+              </Html>
+            </group>
           </group>
         );
       })}
@@ -223,12 +245,20 @@ export default function HouseScene({ onNavigate }: HouseSceneProps) {
         </Suspense>
       </Canvas>
 
-      {/* Navigation overlay */}
-      <div className="absolute top-6 left-6 z-20 flex gap-3">
+      {/* Top bar */}
+      <div className="absolute top-0 left-0 right-0 z-20 flex items-center justify-between px-6 py-5">
         <button onClick={() => onNavigate('/')}
           className="px-4 py-2 rounded-xl bg-black/50 backdrop-blur-sm border border-white/10 text-white/40 hover:text-white text-xs transition-all">
           ← Classic View
         </button>
+        <div className="text-center">
+          <h1 className="text-2xl font-bold gradient-text bg-gradient-to-r from-purple-400 via-pink-400 to-blue-400"
+            style={{ WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
+            O&apos;Brien
+          </h1>
+          <p className="text-[10px] text-white/20 tracking-[0.25em] uppercase">Family Hub</p>
+        </div>
+        <div className="w-[100px]" /> {/* spacer for centering */}
       </div>
 
       {/* Instruction (only after loaded) */}
