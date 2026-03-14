@@ -43,97 +43,119 @@ function WatchPageContent() {
   const [video, setVideo] = useState<VideoData | null>(null);
   const { currentMember, setShowPicker } = useFamilyMember();
   const [mode, setMode] = useState<TranscriptMode>('both');
-  const [showTranscript, setShowTranscript] = useState(false);
+  const [showTranscript, setShowTranscript] = useState(true);
   const [currentTime, setCurrentTime] = useState(0);
-  const [isPlaying, setIsPlaying] = useState(false);
   const [addedWords, setAddedWords] = useState<Set<string>>(new Set());
   const [showVocab, setShowVocab] = useState(false);
+  const [playerReady, setPlayerReady] = useState(false);
 
   const playerRef = useRef<YT.Player | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const timeIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const activeLineRef = useRef<HTMLDivElement>(null);
+  const pollingRef = useRef<number | null>(null);
 
   // Load video data
   useEffect(() => {
     if (!videoId) return;
     fetch(`/api/german/transcript?videoId=${videoId}`)
       .then((r) => r.json())
-      .then(setVideo);
+      .then((data) => {
+        setVideo(data);
+        if (data.segments?.length > 0) setShowTranscript(true);
+      });
   }, [videoId]);
 
-  // Load YouTube IFrame API
+  // Load YouTube IFrame API and create player
   useEffect(() => {
     if (!video) return;
 
-    const tag = document.createElement('script');
-    tag.src = 'https://www.youtube.com/iframe_api';
-    const existing = document.querySelector('script[src="https://www.youtube.com/iframe_api"]');
-    if (!existing) document.head.appendChild(tag);
-
-    const initPlayer = () => {
-      if (playerRef.current) playerRef.current.destroy();
-      playerRef.current = new window.YT.Player('yt-player', {
-        videoId: video.youtubeId,
-        playerVars: { rel: 0, modestbranding: 1 },
-        events: {
-          onStateChange: (e: YT.OnStateChangeEvent) => {
-            setIsPlaying(e.data === window.YT.PlayerState.PLAYING);
-          },
-        },
+    const loadAPI = () => {
+      return new Promise<void>((resolve) => {
+        if (window.YT?.Player) {
+          resolve();
+          return;
+        }
+        const existing = document.querySelector('script[src="https://www.youtube.com/iframe_api"]');
+        if (!existing) {
+          const tag = document.createElement('script');
+          tag.src = 'https://www.youtube.com/iframe_api';
+          document.head.appendChild(tag);
+        }
+        // Poll for YT to be ready (more reliable than callback)
+        const check = setInterval(() => {
+          if (window.YT?.Player) {
+            clearInterval(check);
+            resolve();
+          }
+        }, 100);
       });
     };
 
-    if (window.YT?.Player) {
-      initPlayer();
-    } else {
-      (window as unknown as Record<string, () => void>).onYouTubeIframeAPIReady = initPlayer;
-    }
+    loadAPI().then(() => {
+      if (playerRef.current) {
+        try { playerRef.current.destroy(); } catch {}
+      }
+      playerRef.current = new window.YT.Player('yt-player', {
+        videoId: video.youtubeId,
+        width: '100%',
+        height: '100%',
+        playerVars: { rel: 0, modestbranding: 1 },
+        events: {
+          onReady: () => setPlayerReady(true),
+        },
+      });
+    });
 
     return () => {
-      if (timeIntervalRef.current) clearInterval(timeIntervalRef.current);
+      if (pollingRef.current) cancelAnimationFrame(pollingRef.current);
     };
   }, [video]);
 
-  // Poll current time when playing
+  // Continuous time polling using requestAnimationFrame (more reliable than setInterval)
   useEffect(() => {
-    if (isPlaying) {
-      timeIntervalRef.current = setInterval(() => {
+    if (!playerReady) return;
+
+    const poll = () => {
+      try {
         if (playerRef.current?.getCurrentTime) {
-          setCurrentTime(playerRef.current.getCurrentTime());
+          const t = playerRef.current.getCurrentTime();
+          setCurrentTime(t);
         }
-      }, 250);
-    } else {
-      if (timeIntervalRef.current) clearInterval(timeIntervalRef.current);
-    }
-    return () => {
-      if (timeIntervalRef.current) clearInterval(timeIntervalRef.current);
+      } catch {}
+      pollingRef.current = requestAnimationFrame(poll);
     };
-  }, [isPlaying]);
+    pollingRef.current = requestAnimationFrame(poll);
+
+    return () => {
+      if (pollingRef.current) cancelAnimationFrame(pollingRef.current);
+    };
+  }, [playerReady]);
 
   // Auto-scroll to active line
-  useEffect(() => {
-    if (activeLineRef.current && containerRef.current) {
-      const container = containerRef.current;
-      const line = activeLineRef.current;
-      const lineTop = line.offsetTop - container.offsetTop;
-      const containerScroll = container.scrollTop;
-      const containerHeight = container.clientHeight;
+  const prevActiveId = useRef<string | null>(null);
+  const activeSegment = video?.segments.find(
+    (s) => currentTime >= s.startTime && currentTime < s.endTime
+  );
 
-      if (lineTop < containerScroll || lineTop > containerScroll + containerHeight - 80) {
-        container.scrollTo({ top: lineTop - containerHeight / 3, behavior: 'smooth' });
-      }
+  useEffect(() => {
+    if (activeSegment && activeSegment.id !== prevActiveId.current) {
+      prevActiveId.current = activeSegment.id;
+      // Scroll after a small delay to let the ref update
+      setTimeout(() => {
+        if (activeLineRef.current && containerRef.current) {
+          activeLineRef.current.scrollIntoView({
+            behavior: 'smooth',
+            block: 'center',
+          });
+        }
+      }, 50);
     }
-  }, [currentTime]);
+  }, [activeSegment]);
 
   const seekTo = useCallback((time: number) => {
     playerRef.current?.seekTo(time, true);
     setCurrentTime(time);
   }, []);
-
-  const activeSegment = video?.segments.find(
-    (s) => currentTime >= s.startTime && currentTime < s.endTime
-  );
 
   const addToVocab = async (item: VocabItem) => {
     if (!currentMember) {
@@ -179,10 +201,8 @@ function WatchPageContent() {
             ← Back to Videos
           </Link>
           <div className="flex items-center gap-3">
-            <span
-              className="px-2.5 py-1 rounded-lg text-xs font-bold"
-              style={{ background: '#EAB30830', color: '#EAB308' }}
-            >
+            <span className="px-2.5 py-1 rounded-lg text-xs font-bold"
+              style={{ background: '#EAB30830', color: '#EAB308' }}>
               {video.skillLevel}
             </span>
             <span className="text-white/30 text-sm">{video.channel}</span>
@@ -191,7 +211,6 @@ function WatchPageContent() {
       </div>
 
       <div className="max-w-6xl mx-auto px-6 py-8">
-        {/* Video title */}
         <h1 className="text-2xl font-fredoka font-bold mb-6">{video.title}</h1>
 
         {/* YouTube Player */}
@@ -199,11 +218,19 @@ function WatchPageContent() {
           <div id="yt-player" className="absolute inset-0 w-full h-full" />
         </div>
 
-        {/* Transcript + Vocab toggle buttons */}
+        {/* Debug: current time indicator */}
+        {playerReady && video.segments.length > 0 && (
+          <div className="text-xs text-white/20 mb-2 font-mono">
+            ▶ {formatTime(currentTime)}
+            {activeSegment && <span className="text-yellow-400/50 ml-2">● synced</span>}
+          </div>
+        )}
+
+        {/* Toggle buttons */}
         <div className="flex flex-wrap gap-3 mb-6">
           {video.segments.length > 0 && (
             <button
-              onClick={() => { setShowTranscript(!showTranscript); }}
+              onClick={() => setShowTranscript(!showTranscript)}
               className={`px-5 py-2.5 rounded-xl text-sm font-medium transition-all ${
                 showTranscript
                   ? 'bg-white/10 text-white border border-white/20'
@@ -214,20 +241,17 @@ function WatchPageContent() {
             </button>
           )}
 
-          {showTranscript && (
+          {showTranscript && video.segments.length > 0 && (
             <div className="flex gap-1 bg-white/5 rounded-xl p-1">
               {([
                 { key: 'german' as const, label: '🇩🇪 Deutsch' },
                 { key: 'english' as const, label: '🇺🇸 English' },
                 { key: 'both' as const, label: '🇩🇪/🇺🇸 Both' },
               ]).map((m) => (
-                <button
-                  key={m.key}
-                  onClick={() => setMode(m.key)}
+                <button key={m.key} onClick={() => setMode(m.key)}
                   className={`px-4 py-2 rounded-lg text-xs font-medium transition-all ${
                     mode === m.key ? 'bg-white/10 text-white' : 'text-white/40 hover:text-white/70'
-                  }`}
-                >
+                  }`}>
                   {m.label}
                 </button>
               ))}
@@ -235,63 +259,51 @@ function WatchPageContent() {
           )}
 
           {video.vocabItems.length > 0 && (
-            <button
-              onClick={() => setShowVocab(!showVocab)}
+            <button onClick={() => setShowVocab(!showVocab)}
               className={`px-5 py-2.5 rounded-xl text-sm font-medium transition-all ml-auto ${
                 showVocab
                   ? 'bg-yellow-500/10 text-yellow-400 border border-yellow-500/20'
                   : 'bg-white/5 text-white/50 hover:text-white border border-white/10'
-              }`}
-            >
+              }`}>
               📚 Vocabulary ({video.vocabItems.length})
             </button>
           )}
         </div>
 
-        {/* Transcript panel — full width, larger text */}
+        {/* Transcript panel — full width */}
         <AnimatePresence>
-          {showTranscript && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-            >
-              <div
-                ref={containerRef}
-                className="glass rounded-2xl max-h-[600px] overflow-y-auto divide-y divide-white/5 scroll-smooth"
-              >
+          {showTranscript && video.segments.length > 0 && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+              <div ref={containerRef}
+                className="glass rounded-2xl max-h-[600px] overflow-y-auto divide-y divide-white/5 scroll-smooth mb-6">
                 {video.segments.map((seg) => {
                   const isActive = activeSegment?.id === seg.id;
                   return (
-                    <div
-                      key={seg.id}
+                    <div key={seg.id}
                       ref={isActive ? activeLineRef : undefined}
                       onClick={() => seekTo(seg.startTime)}
-                      className={`flex gap-5 px-6 py-5 cursor-pointer transition-all ${
+                      className={`flex gap-5 px-6 py-5 cursor-pointer transition-all duration-300 ${
                         isActive
-                          ? 'bg-yellow-400/10 border-l-4 border-yellow-400'
+                          ? 'bg-yellow-400/15 border-l-4 border-yellow-400'
                           : 'hover:bg-white/5 border-l-4 border-transparent'
-                      }`}
-                    >
-                      {/* Timestamp */}
+                      }`}>
                       <span className={`text-sm font-mono flex-shrink-0 pt-1 ${
                         isActive ? 'text-yellow-400 font-bold' : 'text-white/25'
                       }`}>
                         {formatTime(seg.startTime)}
                       </span>
-
-                      {/* Text — large and readable */}
                       <div className="flex-1 space-y-2">
                         {(mode === 'german' || mode === 'both') && (
-                          <p className={`text-lg md:text-xl leading-relaxed ${
-                            isActive ? 'text-white font-semibold' : 'text-white/80'
+                          <p className={`text-lg md:text-xl leading-relaxed transition-colors duration-300 ${
+                            isActive ? 'text-white font-semibold' : 'text-white/70'
                           }`}>
                             {seg.germanText}
                           </p>
                         )}
                         {(mode === 'english' || mode === 'both') && (
-                          <p className={`text-base md:text-lg leading-relaxed ${
-                            mode === 'both' ? 'text-white/40 italic' : isActive ? 'text-white font-medium' : 'text-white/70'
+                          <p className={`text-base md:text-lg leading-relaxed transition-colors duration-300 ${
+                            mode === 'both' ? (isActive ? 'text-white/60 italic' : 'text-white/35 italic')
+                              : isActive ? 'text-white font-medium' : 'text-white/60'
                           }`}>
                             {seg.englishText}
                           </p>
@@ -305,15 +317,10 @@ function WatchPageContent() {
           )}
         </AnimatePresence>
 
-        {/* Vocabulary panel — full width, grid layout */}
+        {/* Vocabulary panel */}
         <AnimatePresence>
           {showVocab && (
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              className="mt-6"
-            >
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}>
               <div className="glass rounded-2xl p-6 max-h-[600px] overflow-y-auto">
                 <h3 className="text-sm font-medium text-white/40 uppercase tracking-wider mb-5">
                   Key Vocabulary — {video.vocabItems.length} words
@@ -322,7 +329,7 @@ function WatchPageContent() {
                   {video.vocabItems.map((item) => {
                     const isAdded = addedWords.has(item.germanWord);
                     return (
-                      <div key={item.id} className="flex items-start gap-3 bg-white/[0.02] rounded-xl p-4 group hover:bg-white/[0.05] transition-colors">
+                      <div key={item.id} className="flex items-start gap-3 bg-white/[0.02] rounded-xl p-4 hover:bg-white/[0.05] transition-colors">
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-1">
                             <span className="font-bold text-base">{item.germanWord}</span>
@@ -333,26 +340,17 @@ function WatchPageContent() {
                           <p className="text-white/60 text-sm">{item.englishWord}</p>
                           {item.exampleSentence && (
                             <div className="mt-2 pl-3 border-l-2 border-white/10">
-                              <p className="text-white/40 text-xs leading-relaxed">
-                                {item.exampleSentence}
-                              </p>
+                              <p className="text-white/40 text-xs">{item.exampleSentence}</p>
                               {item.exampleTranslation && (
-                                <p className="text-white/25 text-xs italic mt-0.5">
-                                  {item.exampleTranslation}
-                                </p>
+                                <p className="text-white/25 text-xs italic mt-0.5">{item.exampleTranslation}</p>
                               )}
                             </div>
                           )}
                         </div>
-                        <button
-                          onClick={() => addToVocab(item)}
-                          disabled={isAdded}
+                        <button onClick={() => addToVocab(item)} disabled={isAdded}
                           className={`flex-shrink-0 px-3 py-2 rounded-lg text-xs font-medium transition-all ${
-                            isAdded
-                              ? 'bg-green-500/10 text-green-400'
-                              : 'bg-white/5 text-white/40 hover:text-white hover:bg-white/10'
-                          }`}
-                        >
+                            isAdded ? 'bg-green-500/10 text-green-400' : 'bg-white/5 text-white/40 hover:text-white hover:bg-white/10'
+                          }`}>
                           {isAdded ? '✓ Saved' : '+ Save'}
                         </button>
                       </div>

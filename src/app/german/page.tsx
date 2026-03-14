@@ -30,12 +30,42 @@ export default function GermanPage() {
   const [videos, setVideos] = useState<GermanVideo[]>([]);
   const [activeLevel, setActiveLevel] = useState('A1');
   const [loading, setLoading] = useState(true);
+  const [showAddVideo, setShowAddVideo] = useState(false);
+  const [newVideoUrl, setNewVideoUrl] = useState('');
+  const [addingVideo, setAddingVideo] = useState(false);
 
-  useEffect(() => {
+  const fetchVideos = () => {
     fetch('/api/german/videos')
       .then((r) => r.json())
       .then((data) => { setVideos(data); setLoading(false); });
-  }, []);
+  };
+
+  useEffect(() => { fetchVideos(); }, []);
+
+  const handleAddVideo = async () => {
+    if (!newVideoUrl.trim()) return;
+    setAddingVideo(true);
+    const res = await fetch('/api/german/videos', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ youtubeUrl: newVideoUrl.trim(), skillLevel: activeLevel }),
+    });
+    if (res.ok) {
+      setNewVideoUrl('');
+      setShowAddVideo(false);
+      fetchVideos();
+    } else {
+      const err = await res.json();
+      alert(err.error || 'Failed to add video');
+    }
+    setAddingVideo(false);
+  };
+
+  const handleDeleteVideo = async (id: string) => {
+    if (!confirm('Remove this video?')) return;
+    await fetch(`/api/german/videos?id=${id}`, { method: 'DELETE' });
+    setVideos((prev) => prev.filter((v) => v.id !== id));
+  };
 
   const filteredVideos = videos.filter((v) => v.skillLevel === activeLevel);
   const levelInfo = LEVEL_INFO[activeLevel];
@@ -121,25 +151,6 @@ export default function GermanPage() {
           </motion.div>
         </AnimatePresence>
 
-        {/* Refresh hint */}
-        {!loading && filteredVideos.length > 0 && (
-          <div className="flex justify-center mb-8">
-            <button
-              onClick={() => {
-                setVideos(prev => {
-                  const others = prev.filter(v => v.skillLevel !== activeLevel);
-                  const current = prev.filter(v => v.skillLevel === activeLevel);
-                  const shuffled = [...current].sort(() => Math.random() - 0.5);
-                  return [...others, ...shuffled];
-                });
-              }}
-              className="px-5 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white/40 hover:text-white hover:bg-white/10 text-sm font-medium transition-all flex items-center gap-2"
-            >
-              🔀 Shuffle Videos
-            </button>
-          </div>
-        )}
-
         {/* Video grid */}
         {loading ? (
           <div className="flex justify-center py-20">
@@ -148,7 +159,7 @@ export default function GermanPage() {
         ) : filteredVideos.length === 0 ? (
           <div className="text-center py-20 text-white/30">
             <div className="text-5xl mb-4">📭</div>
-            <p>No videos for {activeLevel} yet. Coming soon!</p>
+            <p>No videos for {activeLevel} yet.</p>
           </div>
         ) : (
           <motion.div
@@ -163,7 +174,17 @@ export default function GermanPage() {
                 initial={{ opacity: 0, y: 30 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * 0.1 }}
+                className="relative group/card"
               >
+                {/* Delete button */}
+                <button
+                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleDeleteVideo(video.id); }}
+                  className="absolute top-3 right-3 z-10 w-7 h-7 rounded-full bg-black/70 text-white/40 hover:text-red-400 hover:bg-black/90 flex items-center justify-center text-xs opacity-0 group-hover/card:opacity-100 transition-all"
+                  title="Remove video"
+                >
+                  ✕
+                </button>
+
                 <Link href={`/german/watch?id=${video.id}`}>
                   <div className="glass rounded-2xl overflow-hidden group cursor-pointer hover:border-white/20 transition-all"
                     style={{ boxShadow: `0 0 40px ${levelInfo.color}08` }}>
@@ -177,22 +198,17 @@ export default function GermanPage() {
                       <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-all flex items-center justify-center">
                         <span className="text-4xl opacity-0 group-hover:opacity-100 transition-opacity">▶️</span>
                       </div>
-                      {/* Level badge */}
-                      <div
-                        className="absolute top-2 left-2 px-2.5 py-1 rounded-lg text-xs font-bold"
-                        style={{ background: `${levelInfo.color}CC`, color: 'white' }}
-                      >
+                      <div className="absolute top-2 left-2 px-2.5 py-1 rounded-lg text-xs font-bold"
+                        style={{ background: `${levelInfo.color}CC`, color: 'white' }}>
                         {video.skillLevel}
                       </div>
-                      {/* Transcript badge */}
                       {video._count.segments > 0 && (
-                        <div className="absolute top-2 right-2 px-2 py-1 rounded-lg bg-black/70 text-xs text-white/70">
+                        <div className="absolute bottom-2 right-2 px-2 py-1 rounded-lg bg-black/70 text-xs text-white/70">
                           📜 Transcript
                         </div>
                       )}
                     </div>
 
-                    {/* Info */}
                     <div className="p-4">
                       <h3 className="font-bold text-sm leading-snug mb-1 group-hover:text-white transition-colors line-clamp-2">
                         {video.title}
@@ -220,6 +236,49 @@ export default function GermanPage() {
             ))}
           </motion.div>
         )}
+
+        {/* Add your own video */}
+        <div className="mt-8">
+          {!showAddVideo ? (
+            <button
+              onClick={() => setShowAddVideo(true)}
+              className="w-full py-4 rounded-2xl border-2 border-dashed border-white/10 text-white/30 hover:text-white/60 hover:border-white/25 transition-all text-sm flex items-center justify-center gap-2"
+            >
+              <span className="text-lg">+</span> Add your own YouTube video to {activeLevel}
+            </button>
+          ) : (
+            <div className="glass rounded-2xl p-5">
+              <h3 className="text-sm font-medium text-white/60 mb-3">Add a YouTube video to {activeLevel}</h3>
+              <div className="flex gap-3">
+                <input
+                  type="text"
+                  value={newVideoUrl}
+                  onChange={(e) => setNewVideoUrl(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleAddVideo()}
+                  placeholder="Paste YouTube URL or video ID..."
+                  autoFocus
+                  className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/30 focus:outline-none focus:border-yellow-500 text-sm"
+                />
+                <button
+                  onClick={handleAddVideo}
+                  disabled={addingVideo || !newVideoUrl.trim()}
+                  className="px-6 py-3 rounded-xl bg-gradient-to-r from-yellow-500 to-red-500 text-white font-medium text-sm disabled:opacity-30 transition-opacity"
+                >
+                  {addingVideo ? '...' : 'Add'}
+                </button>
+                <button
+                  onClick={() => { setShowAddVideo(false); setNewVideoUrl(''); }}
+                  className="px-4 py-3 rounded-xl bg-white/5 text-white/40 text-sm"
+                >
+                  Cancel
+                </button>
+              </div>
+              <p className="text-white/20 text-xs mt-2">
+                Supports youtube.com links, youtu.be short links, or just the video ID
+              </p>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
