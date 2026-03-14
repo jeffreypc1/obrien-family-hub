@@ -15,197 +15,258 @@ interface RoomZone {
 }
 
 export const ROOM_ZONES: RoomZone[] = [
-  { id: 'kitchen', label: '🍳 Kitchen', app: '/recipes', position: [2.2, 1.2, 1.2], size: [2, 1.8, 0.1], color: '#FF6B35', glowColor: '#FF8C5A' },
-  { id: 'living', label: '📺 Living Room', app: '/german', position: [-2.2, 1.2, 1.2], size: [2, 1.8, 0.1], color: '#4A90D9', glowColor: '#6DB3F8' },
-  { id: 'attic', label: '🎤 Music Room', app: 'https://eurovision-family.vercel.app', position: [0, 4.2, 1.2], size: [1.8, 1.2, 0.1], color: '#E91E8C', glowColor: '#FF4DA6' },
-  { id: 'garage', label: '✅ Garage', app: '/todos', position: [5, 0.9, 1.2], size: [2, 1.4, 0.1], color: '#10B981', glowColor: '#34D399' },
-  { id: 'door', label: '📅 Front Door', app: '/events', position: [0, 0.9, 1.25], size: [1.2, 2, 0.1], color: '#8B5CF6', glowColor: '#A78BFA' },
-  { id: 'garden', label: '✈️ Garden', app: '/travel', position: [-4.5, 0.3, 3], size: [2, 1, 0.1], color: '#06B6D4', glowColor: '#22D3EE' },
-  { id: 'porch', label: '💡 Porch', app: '/recommendations', position: [0, 2.8, 1.3], size: [1, 0.6, 0.1], color: '#F59E0B', glowColor: '#FBBF24' },
-  { id: 'mailbox', label: '📸 Mailbox', app: '/photos', position: [3.5, 0.5, 4], size: [0.6, 1, 0.1], color: '#F43F5E', glowColor: '#FB7185' },
+  { id: 'kitchen', label: '🍳 Kitchen', app: '/recipes', position: [2.2, 1.2, 2.6], size: [1.8, 1.5, 0.3], color: '#FF6B35', glowColor: '#FF8C5A' },
+  { id: 'living', label: '📺 Living Room', app: '/german', position: [-2.2, 1.2, 2.6], size: [1.8, 1.5, 0.3], color: '#4A90D9', glowColor: '#6DB3F8' },
+  { id: 'attic', label: '🎤 Music Room', app: 'https://eurovision-family.vercel.app', position: [0, 4.2, 2.6], size: [1.5, 1, 0.3], color: '#E91E8C', glowColor: '#FF4DA6' },
+  { id: 'garage', label: '✅ Garage', app: '/todos', position: [5, 0.9, 2.6], size: [2.2, 1.5, 0.3], color: '#10B981', glowColor: '#34D399' },
+  { id: 'door', label: '📅 Front Door', app: '/events', position: [0, 0.9, 2.7], size: [1, 2, 0.3], color: '#8B5CF6', glowColor: '#A78BFA' },
+  { id: 'garden', label: '✈️ Garden', app: '/travel', position: [-5, 0.2, 4], size: [2.5, 1.5, 2], color: '#06B6D4', glowColor: '#22D3EE' },
+  { id: 'porch', label: '💡 Porch Light', app: '/recommendations', position: [0, 2.5, 3.5], size: [1.5, 1, 1], color: '#F59E0B', glowColor: '#FBBF24' },
+  { id: 'mailbox', label: '📸 Photos', app: '/photos', position: [3.5, 0.4, 5.5], size: [1, 1.2, 1], color: '#F43F5E', glowColor: '#FB7185' },
 ];
 
-export default function House({ onRoomHover }: { onRoomHover: (room: string | null) => void }) {
-  const houseRef = useRef<THREE.Group>(null);
-
+export default function House({ onRoomHover, onRoomClick }: {
+  onRoomHover: (room: string | null) => void;
+  onRoomClick: (room: string) => void;
+}) {
   return (
-    <group ref={houseRef} position={[0, -1, 0]}>
-      {/* ===== FOUNDATION / BASE ===== */}
+    <group position={[0, -1, 0]}>
+      {/* ===== FOUNDATION ===== */}
       <mesh position={[0, 0, 0]} receiveShadow>
         <boxGeometry args={[10, 0.3, 6]} />
-        <meshStandardMaterial color="#4A4A4A" roughness={0.9} />
+        <meshStandardMaterial color="#5A5A5A" roughness={0.9} />
       </mesh>
 
-      {/* ===== MAIN HOUSE BODY ===== */}
-      {/* First floor */}
+      {/* ===== MAIN HOUSE ===== */}
+      {/* First floor walls */}
       <mesh position={[0, 1.15, 0]} castShadow receiveShadow>
         <boxGeometry args={[7, 2, 5]} />
-        <meshStandardMaterial color="#E8DCC8" roughness={0.7} metalness={0.05} />
+        <meshStandardMaterial color="#D4C4A8" roughness={0.75} />
       </mesh>
 
       {/* Second floor */}
       <mesh position={[0, 3, 0]} castShadow receiveShadow>
         <boxGeometry args={[7, 1.7, 5]} />
-        <meshStandardMaterial color="#DDD0BC" roughness={0.7} metalness={0.05} />
+        <meshStandardMaterial color="#C8B898" roughness={0.75} />
       </mesh>
 
-      {/* ===== ROOF ===== */}
+      {/* Horizontal trim between floors */}
+      <mesh position={[0, 2.1, 2.52]}>
+        <boxGeometry args={[7.1, 0.08, 0.08]} />
+        <meshStandardMaterial color="#F5F0E0" roughness={0.6} />
+      </mesh>
+
+      {/* ===== TRADITIONAL ROOF WITH SHINGLES ===== */}
       <RoofSection position={[0, 4.6, 0]} width={7.8} depth={5.8} height={1.8} />
+      {/* Roof trim / fascia */}
+      <mesh position={[0, 3.85, 2.95]}>
+        <boxGeometry args={[7.85, 0.12, 0.12]} />
+        <meshStandardMaterial color="#F5F0E0" roughness={0.6} />
+      </mesh>
 
       {/* ===== CHIMNEY ===== */}
       <mesh position={[2.5, 5.8, -1]} castShadow>
-        <boxGeometry args={[0.6, 1.6, 0.6]} />
-        <meshStandardMaterial color="#8B4513" roughness={0.9} />
+        <boxGeometry args={[0.7, 1.8, 0.7]} />
+        <meshStandardMaterial color="#8B4513" roughness={0.85} />
       </mesh>
-      <mesh position={[2.5, 6.65, -1]}>
-        <boxGeometry args={[0.75, 0.15, 0.75]} />
+      {/* Chimney cap */}
+      <mesh position={[2.5, 6.75, -1]}>
+        <boxGeometry args={[0.85, 0.12, 0.85]} />
         <meshStandardMaterial color="#6B3410" roughness={0.9} />
       </mesh>
 
-      {/* ===== GARAGE (attached right) ===== */}
+      {/* ===== GARAGE ===== */}
       <mesh position={[5, 0.9, 0]} castShadow receiveShadow>
         <boxGeometry args={[3, 1.8, 5]} />
-        <meshStandardMaterial color="#D5C8B4" roughness={0.75} />
+        <meshStandardMaterial color="#C8B898" roughness={0.8} />
       </mesh>
-      {/* Garage roof */}
       <RoofSection position={[5, 2.3, 0]} width={3.6} depth={5.6} height={1} />
       {/* Garage door */}
-      <mesh position={[5, 0.85, 2.51]}>
-        <boxGeometry args={[2.4, 1.6, 0.05]} />
-        <meshStandardMaterial color="#6B6B6B" roughness={0.5} metalness={0.3} />
+      <mesh position={[5, 0.85, 2.52]}>
+        <boxGeometry args={[2.4, 1.6, 0.06]} />
+        <meshStandardMaterial color="#7A7A7A" roughness={0.4} metalness={0.3} />
       </mesh>
-      {/* Garage door lines */}
-      {[0.4, 0.8, 1.2].map((y) => (
-        <mesh key={y} position={[5, y, 2.53]}>
+      {[0.3, 0.7, 1.1, 1.5].map((y) => (
+        <mesh key={y} position={[5, y, 2.55]}>
           <boxGeometry args={[2.3, 0.02, 0.02]} />
-          <meshStandardMaterial color="#555" />
+          <meshStandardMaterial color="#666" />
         </mesh>
       ))}
+      {/* Garage interior glow */}
+      <GlowInterior position={[5, 0.85, 2.48]} color="#10B981" items="garage" />
 
       {/* ===== FRONT DOOR ===== */}
-      <mesh position={[0, 1, 2.51]} castShadow>
-        <boxGeometry args={[1, 1.9, 0.08]} />
-        <meshStandardMaterial color="#5D2E0C" roughness={0.6} />
+      <mesh position={[0, 1, 2.53]}>
+        <boxGeometry args={[1.15, 2, 0.06]} />
+        <meshStandardMaterial color="#4A1E08" roughness={0.5} />
       </mesh>
-      {/* Door frame */}
-      <mesh position={[0, 1, 2.52]}>
-        <boxGeometry args={[1.2, 2.1, 0.03]} />
-        <meshStandardMaterial color="#3D1E06" roughness={0.8} />
+      {/* Door panels */}
+      {[0.55, 1.35].map((y) => (
+        <mesh key={y} position={[0, y, 2.57]}>
+          <boxGeometry args={[0.8, 0.5, 0.02]} />
+          <meshStandardMaterial color="#3D1606" roughness={0.6} />
+        </mesh>
+      ))}
+      {/* Door handle */}
+      <mesh position={[0.4, 0.95, 2.6]}>
+        <sphereGeometry args={[0.055, 16, 16]} />
+        <meshStandardMaterial color="#D4AF37" roughness={0.2} metalness={0.9} />
       </mesh>
-      {/* Door knob */}
-      <mesh position={[0.35, 0.9, 2.57]}>
-        <sphereGeometry args={[0.06, 16, 16]} />
-        <meshStandardMaterial color="#C9A84C" roughness={0.3} metalness={0.8} />
+      {/* Transom window above door */}
+      <mesh position={[0, 2.1, 2.54]}>
+        <boxGeometry args={[1, 0.35, 0.04]} />
+        <meshStandardMaterial color="#8B5CF6" emissive="#8B5CF6" emissiveIntensity={0.4} transparent opacity={0.7} />
       </mesh>
 
       {/* ===== PORCH ===== */}
-      <mesh position={[0, 0.05, 3]} receiveShadow>
-        <boxGeometry args={[4, 0.1, 2]} />
-        <meshStandardMaterial color="#8B7355" roughness={0.8} />
+      <mesh position={[0, 0.05, 3.2]} receiveShadow>
+        <boxGeometry args={[4.5, 0.12, 2.2]} />
+        <meshStandardMaterial color="#7A6B55" roughness={0.8} />
+      </mesh>
+      {/* Porch railing */}
+      {[-1.8, 1.8].map((x) => (
+        <group key={x}>
+          <mesh position={[x, 0.5, 4.1]} castShadow>
+            <boxGeometry args={[0.06, 0.9, 0.06]} />
+            <meshStandardMaterial color="#F0EBD8" roughness={0.7} />
+          </mesh>
+        </group>
+      ))}
+      {/* Porch rail top */}
+      <mesh position={[0, 0.95, 4.1]}>
+        <boxGeometry args={[3.66, 0.05, 0.06]} />
+        <meshStandardMaterial color="#F0EBD8" roughness={0.7} />
       </mesh>
       {/* Porch columns */}
-      {[-1.5, 1.5].map((x) => (
-        <mesh key={x} position={[x, 1.2, 3.8]} castShadow>
-          <cylinderGeometry args={[0.08, 0.1, 2.2, 8]} />
-          <meshStandardMaterial color="#E0D5C5" roughness={0.6} />
+      {[-1.8, 1.8].map((x) => (
+        <mesh key={`col-${x}`} position={[x, 1.4, 4.1]} castShadow>
+          <cylinderGeometry args={[0.09, 0.11, 2.6, 12]} />
+          <meshStandardMaterial color="#E8E0D0" roughness={0.5} />
         </mesh>
       ))}
-      {/* Porch roof */}
-      <mesh position={[0, 2.35, 3.3]}>
-        <boxGeometry args={[4.2, 0.12, 2.8]} />
-        <meshStandardMaterial color="#7A6B55" roughness={0.7} />
+      {/* Porch overhang */}
+      <mesh position={[0, 2.75, 3.5]}>
+        <boxGeometry args={[4.8, 0.1, 3]} />
+        <meshStandardMaterial color="#6B5D4A" roughness={0.7} />
       </mesh>
-      {/* Porch light */}
-      <PorchLight position={[0, 2.6, 2.55]} />
 
-      {/* ===== WINDOWS ===== */}
-      {/* First floor - left */}
-      <Window position={[-2.2, 1.2, 2.51]} size={[1.4, 1.2]} glowColor="#4A90D9" />
-      {/* First floor - right */}
-      <Window position={[2.2, 1.2, 2.51]} size={[1.4, 1.2]} glowColor="#FF8C5A" />
-      {/* Second floor - left */}
-      <Window position={[-2.2, 3.2, 2.51]} size={[1.2, 1]} glowColor="#E8C55A" />
-      {/* Second floor - right */}
-      <Window position={[2.2, 3.2, 2.51]} size={[1.2, 1]} glowColor="#7EC8E3" />
-      {/* Attic window */}
-      <Window position={[0, 4.4, 2.51]} size={[1.2, 0.8]} glowColor="#E91E8C" />
+      {/* ===== PORCH LIGHT ===== */}
+      <PorchLight position={[0.7, 2.4, 2.55]} />
+      <PorchLight position={[-0.7, 2.4, 2.55]} />
 
+      {/* ===== WINDOWS WITH INTERIORS ===== */}
+      {/* Living room - left first floor */}
+      <WindowWithInterior position={[-2.2, 1.2, 2.52]} size={[1.6, 1.3]} glowColor="#4A90D9" items="living" />
+      {/* Kitchen - right first floor */}
+      <WindowWithInterior position={[2.2, 1.2, 2.52]} size={[1.6, 1.3]} glowColor="#FF8C5A" items="kitchen" />
+      {/* Bedroom left - second floor */}
+      <WindowWithInterior position={[-2.2, 3.2, 2.52]} size={[1.2, 1]} glowColor="#E8C55A" items="bedroom" />
+      {/* Bedroom right - second floor */}
+      <WindowWithInterior position={[2.2, 3.2, 2.52]} size={[1.2, 1]} glowColor="#7EC8E3" items="bedroom2" />
+      {/* Attic / music room */}
+      <WindowWithInterior position={[0, 4.3, 2.52]} size={[1.2, 0.8]} glowColor="#E91E8C" items="music" />
       {/* Side windows */}
-      <Window position={[-3.51, 1.3, 0]} size={[1.2, 1.2]} glowColor="#90BE6D" rotation={[0, Math.PI / 2, 0]} />
-      <Window position={[3.51, 1.3, 0]} size={[1.2, 1.2]} glowColor="#F9C74F" rotation={[0, Math.PI / 2, 0]} />
+      <WindowWithInterior position={[-3.51, 1.3, 0]} size={[1.2, 1.2]} glowColor="#90BE6D" items="side" rotation={[0, Math.PI / 2, 0]} />
+      <WindowWithInterior position={[3.51, 1.3, 0]} size={[1.2, 1.2]} glowColor="#F9C74F" items="side2" rotation={[0, Math.PI / 2, 0]} />
 
       {/* ===== STEPS ===== */}
       {[0, 1, 2].map((i) => (
-        <mesh key={i} position={[0, -0.1 + i * -0.12, 3.8 + i * 0.4]} receiveShadow>
-          <boxGeometry args={[1.8 + i * 0.3, 0.12, 0.4]} />
-          <meshStandardMaterial color="#888" roughness={0.8} />
+        <mesh key={i} position={[0, -0.05 + i * -0.13, 4.1 + i * 0.45]} receiveShadow>
+          <boxGeometry args={[2 + i * 0.3, 0.13, 0.45]} />
+          <meshStandardMaterial color="#999" roughness={0.85} />
         </mesh>
       ))}
 
       {/* ===== DRIVEWAY ===== */}
-      <mesh position={[5, -0.14, 5]} receiveShadow rotation={[-Math.PI / 2, 0, 0]}>
-        <planeGeometry args={[3, 6]} />
-        <meshStandardMaterial color="#666" roughness={0.9} />
+      <mesh position={[5, -0.13, 5.5]} receiveShadow rotation={[-Math.PI / 2, 0, 0]}>
+        <planeGeometry args={[3.2, 7]} />
+        <meshStandardMaterial color="#555" roughness={0.95} />
       </mesh>
 
       {/* ===== MAILBOX ===== */}
-      <mesh position={[3.5, 0.1, 5.5]} castShadow>
-        <cylinderGeometry args={[0.05, 0.05, 1, 8]} />
-        <meshStandardMaterial color="#333" roughness={0.8} />
+      <mesh position={[3.5, 0.15, 6]} castShadow>
+        <cylinderGeometry args={[0.04, 0.04, 1.1, 8]} />
+        <meshStandardMaterial color="#222" roughness={0.7} />
       </mesh>
-      <mesh position={[3.5, 0.65, 5.5]} castShadow>
-        <boxGeometry args={[0.4, 0.3, 0.25]} />
-        <meshStandardMaterial color="#2255AA" roughness={0.5} metalness={0.3} />
+      <mesh position={[3.5, 0.75, 6]} castShadow>
+        <boxGeometry args={[0.45, 0.32, 0.28]} />
+        <meshStandardMaterial color="#1E4D8C" roughness={0.4} metalness={0.4} />
+      </mesh>
+      {/* Mailbox flag */}
+      <mesh position={[3.73, 0.82, 6]}>
+        <boxGeometry args={[0.04, 0.2, 0.04]} />
+        <meshStandardMaterial color="#CC2222" roughness={0.5} />
       </mesh>
 
-      {/* ===== TREES ===== */}
-      <Tree position={[-5, 0, 2]} scale={1.2} />
-      <Tree position={[-6, 0, -1]} scale={0.9} />
-      <Tree position={[7.5, 0, -1.5]} scale={1} />
-      <Tree position={[7, 0, 2.5]} scale={0.7} />
+      {/* ===== LANDSCAPING ===== */}
+      {/* Trees */}
+      <RealisticTree position={[-5.5, 0, 3]} scale={1.3} />
+      <RealisticTree position={[-6.5, 0, -1]} scale={1} />
+      <RealisticTree position={[7.5, 0, -1]} scale={1.1} />
+      <RealisticTree position={[8, 0, 3.5]} scale={0.8} />
+      <RealisticTree position={[-4, 0, -2.5]} scale={0.7} />
 
-      {/* ===== BUSHES ===== */}
-      {[-1.5, 1.5, -3, 3].map((x, i) => (
-        <mesh key={i} position={[x, 0.2, 2.3 + (i % 2) * 0.2]} castShadow>
-          <sphereGeometry args={[0.35, 12, 12]} />
-          <meshStandardMaterial color="#2D5A1E" roughness={0.9} />
+      {/* Bushes along house front */}
+      {[-2.8, -1.2, 1.2, 2.8].map((x, i) => (
+        <group key={i} position={[x, 0.15, 2.7]}>
+          <mesh castShadow>
+            <sphereGeometry args={[0.3 + (i % 2) * 0.08, 12, 12]} />
+            <meshStandardMaterial color="#2A5E1A" roughness={0.95} />
+          </mesh>
+        </group>
+      ))}
+
+      {/* Garden area - left side */}
+      <mesh position={[-5, -0.12, 4]} receiveShadow rotation={[-Math.PI / 2, 0, 0]}>
+        <planeGeometry args={[3, 3]} />
+        <meshStandardMaterial color="#1E4D12" roughness={1} />
+      </mesh>
+      {/* Garden flowers */}
+      {Array.from({ length: 8 }).map((_, i) => (
+        <mesh key={i} position={[-4.5 + (i % 3) * 0.7, 0.1, 3.5 + Math.floor(i / 3) * 0.6]} castShadow>
+          <sphereGeometry args={[0.08, 8, 8]} />
+          <meshStandardMaterial
+            color={['#FF6B8A', '#FFD93D', '#FF8C42', '#C084FC', '#60A5FA', '#34D399', '#F472B6', '#FBBF24'][i]}
+            emissive={['#FF6B8A', '#FFD93D', '#FF8C42', '#C084FC', '#60A5FA', '#34D399', '#F472B6', '#FBBF24'][i]}
+            emissiveIntensity={0.2}
+          />
         </mesh>
       ))}
 
-      {/* ===== FENCE ===== */}
-      {Array.from({ length: 12 }).map((_, i) => (
-        <group key={i} position={[-6.5 + i * 1.2, 0, 6]}>
-          <mesh position={[0, 0.35, 0]} castShadow>
-            <boxGeometry args={[0.06, 0.7, 0.06]} />
-            <meshStandardMaterial color="#F5F0E6" roughness={0.8} />
+      {/* ===== WHITE PICKET FENCE ===== */}
+      {Array.from({ length: 16 }).map((_, i) => (
+        <group key={i} position={[-8 + i * 1.1, 0, 7]}>
+          <mesh position={[0, 0.3, 0]} castShadow>
+            <boxGeometry args={[0.06, 0.6, 0.05]} />
+            <meshStandardMaterial color="#F5F0E6" roughness={0.75} />
           </mesh>
-          <mesh position={[0, 0.72, 0]}>
-            <coneGeometry args={[0.06, 0.1, 4]} />
-            <meshStandardMaterial color="#F5F0E6" roughness={0.8} />
+          <mesh position={[0, 0.62, 0]}>
+            <coneGeometry args={[0.05, 0.08, 4]} />
+            <meshStandardMaterial color="#F0EBD8" roughness={0.75} />
           </mesh>
-          {i < 11 && (
+          {i < 15 && (
             <>
-              <mesh position={[0.6, 0.25, 0]}>
-                <boxGeometry args={[1.2, 0.06, 0.04]} />
-                <meshStandardMaterial color="#F0EBD8" roughness={0.8} />
+              <mesh position={[0.55, 0.2, 0]}>
+                <boxGeometry args={[1.1, 0.05, 0.03]} />
+                <meshStandardMaterial color="#EDE8D5" roughness={0.8} />
               </mesh>
-              <mesh position={[0.6, 0.5, 0]}>
-                <boxGeometry args={[1.2, 0.06, 0.04]} />
-                <meshStandardMaterial color="#F0EBD8" roughness={0.8} />
+              <mesh position={[0.55, 0.45, 0]}>
+                <boxGeometry args={[1.1, 0.05, 0.03]} />
+                <meshStandardMaterial color="#EDE8D5" roughness={0.8} />
               </mesh>
             </>
           )}
         </group>
       ))}
 
-      {/* ===== INTERACTIVE ROOM ZONES ===== */}
+      {/* ===== INTERACTIVE CLICK ZONES ===== */}
       {ROOM_ZONES.map((room) => (
         <mesh
           key={room.id}
           position={room.position}
-          onPointerEnter={() => onRoomHover(room.id)}
-          onPointerLeave={() => onRoomHover(null)}
-          visible={false}
+          onPointerEnter={(e) => { e.stopPropagation(); onRoomHover(room.id); document.body.style.cursor = 'pointer'; }}
+          onPointerLeave={() => { onRoomHover(null); document.body.style.cursor = 'default'; }}
+          onClick={(e) => { e.stopPropagation(); onRoomClick(room.id); }}
         >
           <boxGeometry args={room.size} />
           <meshBasicMaterial transparent opacity={0} />
@@ -222,55 +283,114 @@ function RoofSection({ position, width, depth, height }: { position: [number, nu
   shape.lineTo(width / 2, 0);
   shape.lineTo(-width / 2, 0);
 
-  const extrudeSettings = { depth, bevelEnabled: false };
-
   return (
     <mesh position={[position[0], position[1], position[2] - depth / 2]} castShadow rotation={[Math.PI / 2, 0, 0]}>
-      <extrudeGeometry args={[shape, extrudeSettings]} />
-      <meshStandardMaterial color="#5C3A21" roughness={0.8} metalness={0.1} />
+      <extrudeGeometry args={[shape, { depth, bevelEnabled: false }]} />
+      <meshStandardMaterial color="#5C3A21" roughness={0.85} />
     </mesh>
   );
 }
 
-function Window({ position, size, glowColor, rotation }: { position: [number, number, number]; size: [number, number]; glowColor: string; rotation?: [number, number, number] }) {
+// Window with visible interior elements
+function WindowWithInterior({ position, size, glowColor, items, rotation }: {
+  position: [number, number, number]; size: [number, number]; glowColor: string; items: string; rotation?: [number, number, number];
+}) {
   const lightRef = useRef<THREE.PointLight>(null);
 
   useFrame(({ clock }) => {
     if (lightRef.current) {
-      lightRef.current.intensity = 1.5 + Math.sin(clock.elapsedTime * 0.5 + position[0]) * 0.3;
+      lightRef.current.intensity = 2 + Math.sin(clock.elapsedTime * 0.8 + position[0]) * 0.4;
     }
   });
 
   return (
     <group position={position} rotation={rotation}>
-      {/* Window frame */}
+      {/* Frame */}
       <mesh>
-        <boxGeometry args={[size[0] + 0.15, size[1] + 0.15, 0.06]} />
-        <meshStandardMaterial color="#3D3D3D" roughness={0.5} />
+        <boxGeometry args={[size[0] + 0.16, size[1] + 0.16, 0.07]} />
+        <meshStandardMaterial color="#F0EBD8" roughness={0.6} />
       </mesh>
-      {/* Glass pane with warm glow */}
+      {/* Glass with interior glow */}
       <mesh position={[0, 0, 0.02]}>
         <boxGeometry args={size} />
-        <meshStandardMaterial
-          color={glowColor}
-          emissive={glowColor}
-          emissiveIntensity={0.6}
-          transparent
-          opacity={0.85}
-          roughness={0.1}
-        />
+        <meshStandardMaterial color={glowColor} emissive={glowColor} emissiveIntensity={0.5} transparent opacity={0.75} roughness={0.05} />
       </mesh>
-      {/* Window dividers */}
+      {/* Window cross dividers */}
       <mesh position={[0, 0, 0.04]}>
-        <boxGeometry args={[0.04, size[1], 0.02]} />
-        <meshStandardMaterial color="#555" />
+        <boxGeometry args={[0.035, size[1], 0.02]} />
+        <meshStandardMaterial color="#E0D8C8" />
       </mesh>
       <mesh position={[0, 0, 0.04]}>
-        <boxGeometry args={[size[0], 0.04, 0.02]} />
-        <meshStandardMaterial color="#555" />
+        <boxGeometry args={[size[0], 0.035, 0.02]} />
+        <meshStandardMaterial color="#E0D8C8" />
       </mesh>
-      {/* Light source */}
-      <pointLight ref={lightRef} position={[0, 0, 1]} color={glowColor} intensity={1.5} distance={4} decay={2} />
+
+      {/* Interior silhouettes behind the glass */}
+      <InteriorSilhouette items={items} size={size} />
+
+      {/* Light casting outward */}
+      <pointLight ref={lightRef} position={[0, 0, 2]} color={glowColor} intensity={2} distance={6} decay={2} castShadow />
+    </group>
+  );
+}
+
+// Interior silhouettes visible through windows
+function InteriorSilhouette({ items, size }: { items: string; size: [number, number] }) {
+  const scale = Math.min(size[0], size[1]) * 0.3;
+
+  switch (items) {
+    case 'kitchen':
+      return (
+        <group position={[0, -size[1] * 0.2, -0.3]}>
+          {/* Counter/shelf */}
+          <mesh><boxGeometry args={[size[0] * 0.8, 0.04, 0.1]} /><meshStandardMaterial color="#4A3525" /></mesh>
+          {/* Pot */}
+          <mesh position={[-0.2, 0.12, 0]}><cylinderGeometry args={[0.08, 0.08, 0.15, 8]} /><meshStandardMaterial color="#888" metalness={0.6} /></mesh>
+          {/* Cup */}
+          <mesh position={[0.2, 0.08, 0]}><cylinderGeometry args={[0.05, 0.04, 0.1, 8]} /><meshStandardMaterial color="#DDD" /></mesh>
+        </group>
+      );
+    case 'living':
+      return (
+        <group position={[0, -size[1] * 0.25, -0.3]}>
+          {/* Couch silhouette */}
+          <mesh><boxGeometry args={[size[0] * 0.6, 0.15, 0.12]} /><meshStandardMaterial color="#3A5A8C" /></mesh>
+          {/* Lamp */}
+          <mesh position={[size[0] * 0.3, 0.25, 0]}><cylinderGeometry args={[0.02, 0.02, 0.35, 6]} /><meshStandardMaterial color="#666" /></mesh>
+          <mesh position={[size[0] * 0.3, 0.45, 0]}><coneGeometry args={[0.08, 0.1, 8]} /><meshStandardMaterial color="#FFE4B5" emissive="#FFE4B5" emissiveIntensity={0.5} /></mesh>
+        </group>
+      );
+    case 'music':
+      return (
+        <group position={[0, -size[1] * 0.15, -0.3]}>
+          {/* Guitar shape */}
+          <mesh position={[-0.15, 0, 0]} rotation={[0, 0, 0.3]}>
+            <cylinderGeometry args={[0.06, 0.08, 0.25, 8]} />
+            <meshStandardMaterial color="#8B4513" />
+          </mesh>
+          {/* Music notes (small spheres) */}
+          <mesh position={[0.15, 0.1, 0]}><sphereGeometry args={[0.04, 8, 8]} /><meshStandardMaterial color="#E91E8C" emissive="#E91E8C" emissiveIntensity={1} /></mesh>
+          <mesh position={[0.25, 0.05, 0]}><sphereGeometry args={[0.03, 8, 8]} /><meshStandardMaterial color="#FF4DA6" emissive="#FF4DA6" emissiveIntensity={1} /></mesh>
+        </group>
+      );
+    case 'bedroom':
+      return (
+        <group position={[0, -size[1] * 0.2, -0.3]}>
+          {/* Bed */}
+          <mesh><boxGeometry args={[size[0] * 0.5, 0.08, 0.15]} /><meshStandardMaterial color="#445" /></mesh>
+          {/* Pillow */}
+          <mesh position={[-0.12, 0.06, 0]}><boxGeometry args={[0.12, 0.05, 0.1]} /><meshStandardMaterial color="#EEE" /></mesh>
+        </group>
+      );
+    default:
+      return null;
+  }
+}
+
+function GlowInterior({ position, color }: { position: [number, number, number]; color: string; items: string }) {
+  return (
+    <group position={position}>
+      <pointLight position={[0, 0, 0.5]} color={color} intensity={1} distance={4} decay={2} />
     </group>
   );
 }
@@ -280,45 +400,45 @@ function PorchLight({ position }: { position: [number, number, number] }) {
 
   useFrame(({ clock }) => {
     if (lightRef.current) {
-      lightRef.current.intensity = 3 + Math.sin(clock.elapsedTime * 2) * 0.5;
+      lightRef.current.intensity = 4 + Math.sin(clock.elapsedTime * 1.5) * 0.8;
     }
   });
 
   return (
     <group position={position}>
       <mesh>
-        <boxGeometry args={[0.15, 0.25, 0.15]} />
-        <meshStandardMaterial color="#333" metalness={0.5} roughness={0.3} />
+        <boxGeometry args={[0.12, 0.22, 0.12]} />
+        <meshStandardMaterial color="#444" metalness={0.6} roughness={0.3} />
       </mesh>
-      <mesh position={[0, -0.05, 0]}>
-        <sphereGeometry args={[0.08, 12, 12]} />
-        <meshStandardMaterial color="#FFF5CC" emissive="#FFCC44" emissiveIntensity={2} />
+      <mesh position={[0, -0.08, 0.04]}>
+        <sphereGeometry args={[0.06, 12, 12]} />
+        <meshStandardMaterial color="#FFF5CC" emissive="#FFCC44" emissiveIntensity={3} />
       </mesh>
-      <pointLight ref={lightRef} position={[0, -0.2, 0.3]} color="#FFCC44" intensity={3} distance={6} decay={2} />
+      <pointLight ref={lightRef} position={[0, -0.3, 0.5]} color="#FFCC44" intensity={4} distance={8} decay={2} castShadow />
     </group>
   );
 }
 
-function Tree({ position, scale = 1 }: { position: [number, number, number]; scale?: number }) {
+function RealisticTree({ position, scale = 1 }: { position: [number, number, number]; scale?: number }) {
   return (
     <group position={position} scale={scale}>
       {/* Trunk */}
-      <mesh position={[0, 0.6, 0]} castShadow>
-        <cylinderGeometry args={[0.1, 0.15, 1.2, 8]} />
-        <meshStandardMaterial color="#5C3A1E" roughness={0.9} />
+      <mesh position={[0, 0.7, 0]} castShadow>
+        <cylinderGeometry args={[0.08, 0.14, 1.4, 8]} />
+        <meshStandardMaterial color="#4A2E12" roughness={0.95} />
       </mesh>
-      {/* Foliage layers */}
-      <mesh position={[0, 1.6, 0]} castShadow>
-        <coneGeometry args={[0.8, 1.2, 8]} />
-        <meshStandardMaterial color="#1A4D1A" roughness={0.9} />
+      {/* Canopy layers - fuller, rounder */}
+      <mesh position={[0, 1.8, 0]} castShadow>
+        <sphereGeometry args={[0.9, 12, 12]} />
+        <meshStandardMaterial color="#1B4D1B" roughness={0.95} />
       </mesh>
-      <mesh position={[0, 2.2, 0]} castShadow>
-        <coneGeometry args={[0.6, 1, 8]} />
-        <meshStandardMaterial color="#1E5C1E" roughness={0.9} />
+      <mesh position={[0.2, 2.2, 0.15]} castShadow>
+        <sphereGeometry args={[0.7, 12, 12]} />
+        <meshStandardMaterial color="#225522" roughness={0.95} />
       </mesh>
-      <mesh position={[0, 2.7, 0]} castShadow>
-        <coneGeometry args={[0.4, 0.8, 8]} />
-        <meshStandardMaterial color="#226B22" roughness={0.9} />
+      <mesh position={[-0.15, 2.5, -0.1]} castShadow>
+        <sphereGeometry args={[0.5, 12, 12]} />
+        <meshStandardMaterial color="#2A6B2A" roughness={0.95} />
       </mesh>
     </group>
   );
