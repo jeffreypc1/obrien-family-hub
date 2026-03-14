@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
 import { useFamilyMember } from '@/components/FamilyContext';
+import ThemedBackground from '@/components/ThemedBackground';
 
 interface Ingredient {
   name: string;
@@ -152,7 +153,7 @@ function WatchContent() {
   const myLatest = recipe.ratings.filter((r) => r.memberName === currentMember?.name).slice(-1)[0]?.stars || 0;
 
   return (
-    <div className="min-h-screen relative z-10">
+    <div className="min-h-screen relative z-10"><ThemedBackground theme="kitchen" />
       <div className="border-b border-white/5">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
           <Link href="/recipes" className="text-white/40 hover:text-white/80 transition-colors text-sm">← Back to Recipes</Link>

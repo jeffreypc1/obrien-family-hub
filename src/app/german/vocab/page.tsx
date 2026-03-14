@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
 import { useFamilyMember } from '@/components/FamilyContext';
+import ThemedBackground from '@/components/ThemedBackground';
 
 interface VocabEntry {
   id: string;
@@ -64,7 +65,7 @@ export default function VocabPage() {
   }
 
   return (
-    <div className="min-h-screen relative z-10">
+    <div className="min-h-screen relative z-10"><ThemedBackground theme="german" />
       {/* Header */}
       <div className="border-b border-white/5">
         <div className="max-w-4xl mx-auto px-6 py-4 flex items-center justify-between">

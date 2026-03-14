@@ -8,8 +8,8 @@ import * as THREE from 'three';
 import House, { ROOM_ZONES } from './House';
 import UFO from './UFO';
 
-function CameraController({ phase, progress, targetRoom, onPhaseComplete }: {
-  phase: string; progress: number; targetRoom: string | null; onPhaseComplete: () => void;
+function CameraController({ phase, progress, onPhaseComplete }: {
+  phase: string; progress: number; onPhaseComplete: () => void;
 }) {
   const { camera } = useThree();
   const targetPos = useRef(new THREE.Vector3(2, 3.5, 16));
@@ -28,16 +28,6 @@ function CameraController({ phase, progress, targetRoom, onPhaseComplete }: {
     } else if (phase === 'departing' || phase === 'idle') {
       targetPos.current.set(2, 3, 16);
       targetLook.current.set(0, 1.2, 0);
-    }
-
-    // Room zoom
-    if (targetRoom && phase === 'idle') {
-      const room = ROOM_ZONES.find((r) => r.id === targetRoom);
-      if (room) {
-        const [rx, ry, rz] = room.position;
-        targetPos.current.set(rx * 0.5, ry + 0.3, rz + 6);
-        targetLook.current.set(rx, ry - 0.2, rz);
-      }
     }
 
     camera.position.lerp(targetPos.current, 0.04);
@@ -77,41 +67,39 @@ function Ground() {
   );
 }
 
-function RoomLabels({ hoveredRoom, zoomedRoom, onRoomClick }: {
-  hoveredRoom: string | null; zoomedRoom: string | null; onRoomClick: (id: string) => void;
+function RoomLabels({ hoveredRoom, onNavigate }: {
+  hoveredRoom: string | null; onNavigate: (url: string) => void;
 }) {
   return (
     <>
       {ROOM_ZONES.map((room) => {
-        const isActive = hoveredRoom === room.id || zoomedRoom === room.id;
+        const isActive = hoveredRoom === room.id;
         return (
           <group key={room.id} position={[room.position[0], room.position[1] + 1, room.position[2] + 0.3]}>
             <Html center distanceFactor={10} style={{ pointerEvents: 'auto' }}>
               <div
-                onClick={(e) => { e.stopPropagation(); onRoomClick(room.id); }}
+                onClick={(e) => { e.stopPropagation(); onNavigate(room.app); }}
                 className={`cursor-pointer select-none transition-all duration-300 ${
                   isActive ? 'opacity-100 scale-100' : 'opacity-0 scale-75 pointer-events-none'
                 }`}
                 style={{
                   background: `linear-gradient(135deg, ${room.color}EE, ${room.color}AA)`,
-                  padding: '10px 20px',
+                  padding: '12px 22px',
                   borderRadius: '14px',
                   color: 'white',
                   fontWeight: 700,
-                  fontSize: '15px',
+                  fontSize: '16px',
                   whiteSpace: 'nowrap',
                   boxShadow: `0 6px 30px ${room.color}80, 0 0 60px ${room.color}30`,
-                  border: `1px solid rgba(255,255,255,0.2)`,
-                  backdropFilter: 'blur(8px)',
-                  textShadow: '0 1px 3px rgba(0,0,0,0.3)',
+                  border: `1px solid rgba(255,255,255,0.25)`,
+                  backdropFilter: 'blur(10px)',
+                  textShadow: '0 1px 3px rgba(0,0,0,0.4)',
                 }}
               >
                 {room.label}
-                {zoomedRoom === room.id && (
-                  <span style={{ display: 'block', fontSize: '11px', opacity: 0.8, marginTop: '3px', fontWeight: 500 }}>
-                    Click to enter →
-                  </span>
-                )}
+                <span style={{ display: 'block', fontSize: '11px', opacity: 0.7, marginTop: '2px', fontWeight: 400 }}>
+                  Click to enter →
+                </span>
               </div>
             </Html>
           </group>
@@ -145,7 +133,6 @@ export default function HouseScene({ onNavigate, skipIntro = false }: HouseScene
   const [phase, setPhase] = useState<Phase>(skipIntro ? 'idle' : 'flying-in');
   const [progress, setProgress] = useState(0);
   const [hoveredRoom, setHoveredRoom] = useState<string | null>(null);
-  const [zoomedRoom, setZoomedRoom] = useState<string | null>(null);
   const [showHouse, setShowHouse] = useState(skipIntro);
   const startTime = useRef(Date.now());
 
@@ -168,22 +155,12 @@ export default function HouseScene({ onNavigate, skipIntro = false }: HouseScene
 
   const handleSkip = () => { setPhase('idle'); setShowHouse(true); setProgress(0); };
 
-  const handleRoomClick = (roomId: string) => {
-    if (zoomedRoom === roomId) {
-      const room = ROOM_ZONES.find((r) => r.id === roomId);
-      if (room) onNavigate(room.app);
-    } else {
-      setZoomedRoom(roomId);
-    }
-  };
-
   return (
     <div className="w-full h-screen relative bg-[#050510]">
       <Canvas
         shadows
         camera={{ position: [10, 8, 22], fov: 42 }}
         gl={{ antialias: true, toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1.4 }}
-        onPointerMissed={() => { if (zoomedRoom) setZoomedRoom(null); }}
       >
         <color attach="background" args={['#050510']} />
         <fog attach="fog" args={['#080818', 35, 90]} />
@@ -224,20 +201,23 @@ export default function HouseScene({ onNavigate, skipIntro = false }: HouseScene
         <pointLight position={[8, 4, 7]} color="#FFDD88" intensity={1.5} distance={12} decay={2} />
 
         {/* Camera */}
-        <CameraController phase={phase} progress={progress} targetRoom={zoomedRoom} onPhaseComplete={handlePhaseComplete} />
+        <CameraController phase={phase} progress={progress} onPhaseComplete={handlePhaseComplete} />
 
         {/* Ground */}
         <Ground />
 
         {/* House */}
-        {showHouse && <House onRoomHover={setHoveredRoom} onRoomClick={handleRoomClick} />}
+        {showHouse && <House onRoomHover={setHoveredRoom} onRoomClick={(id) => {
+          const room = ROOM_ZONES.find((r) => r.id === id);
+          if (room) onNavigate(room.app);
+        }} />}
 
         {/* UFO */}
         {phase !== 'idle' && <UFO phase={phase as 'flying-in' | 'beaming' | 'departing' | 'gone'} progress={progress} />}
 
         {/* Room labels */}
         {phase === 'idle' && (
-          <RoomLabels hoveredRoom={hoveredRoom} zoomedRoom={zoomedRoom} onRoomClick={handleRoomClick} />
+          <RoomLabels hoveredRoom={hoveredRoom} onNavigate={onNavigate} />
         )}
 
         {/* Post processing */}
@@ -266,26 +246,11 @@ export default function HouseScene({ onNavigate, skipIntro = false }: HouseScene
           </div>
 
           {/* Instruction */}
-          {!zoomedRoom && !hoveredRoom && (
+          {!hoveredRoom && (
             <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-20 animate-pulse">
               <p className="text-white/30 text-sm bg-black/40 backdrop-blur-sm rounded-2xl px-6 py-3 border border-white/5">
-                ✨ Hover over the house to explore rooms
+                ✨ Hover over the house to explore rooms · Click to enter
               </p>
-            </div>
-          )}
-
-          {/* Enter room button */}
-          {zoomedRoom && (
-            <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-20">
-              <button
-                onClick={() => {
-                  const room = ROOM_ZONES.find((r) => r.id === zoomedRoom);
-                  if (room) onNavigate(room.app);
-                }}
-                className="px-10 py-4 rounded-2xl bg-gradient-to-r from-purple-500 to-pink-500 text-white font-bold text-lg shadow-xl shadow-purple-500/30 hover:scale-105 hover:shadow-purple-500/50 transition-all border border-white/20"
-              >
-                Enter {ROOM_ZONES.find((r) => r.id === zoomedRoom)?.label} →
-              </button>
             </div>
           )}
         </>

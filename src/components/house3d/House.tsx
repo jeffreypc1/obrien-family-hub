@@ -96,26 +96,26 @@ export default function House({ onRoomHover, onRoomClick }: {
       <GlowInterior position={[5, 0.85, 2.48]} color="#10B981" items="garage" />
 
       {/* ===== FRONT DOOR ===== */}
-      <mesh position={[0, 1, 2.53]}>
-        <boxGeometry args={[1.15, 2, 0.06]} />
+      <mesh position={[0, 1, 2.54]}>
+        <boxGeometry args={[1.15, 2, 0.08]} />
         <meshStandardMaterial color="#4A1E08" roughness={0.5} />
       </mesh>
-      {/* Door panels */}
+      {/* Door panels (recessed) */}
       {[0.55, 1.35].map((y) => (
-        <mesh key={y} position={[0, y, 2.57]}>
-          <boxGeometry args={[0.8, 0.5, 0.02]} />
+        <mesh key={y} position={[0, y, 2.59]}>
+          <boxGeometry args={[0.8, 0.5, 0.03]} />
           <meshStandardMaterial color="#3D1606" roughness={0.6} />
         </mesh>
       ))}
       {/* Door handle */}
-      <mesh position={[0.4, 0.95, 2.6]}>
+      <mesh position={[0.4, 0.95, 2.63]}>
         <sphereGeometry args={[0.055, 16, 16]} />
         <meshStandardMaterial color="#D4AF37" roughness={0.2} metalness={0.9} />
       </mesh>
       {/* Transom window above door */}
-      <mesh position={[0, 2.1, 2.54]}>
-        <boxGeometry args={[1, 0.35, 0.04]} />
-        <meshStandardMaterial color="#8B5CF6" emissive="#8B5CF6" emissiveIntensity={0.4} transparent opacity={0.7} />
+      <mesh position={[0, 2.1, 2.58]}>
+        <boxGeometry args={[1, 0.35, 0.03]} />
+        <meshStandardMaterial color="#8B5CF6" emissive="#8B5CF6" emissiveIntensity={0.3} transparent opacity={0.6} />
       </mesh>
 
       {/* ===== PORCH ===== */}
@@ -150,9 +150,8 @@ export default function House({ onRoomHover, onRoomClick }: {
         <meshStandardMaterial color="#6B5D4A" roughness={0.7} />
       </mesh>
 
-      {/* ===== PORCH LIGHT ===== */}
-      <PorchLight position={[0.7, 2.4, 2.55]} />
-      <PorchLight position={[-0.7, 2.4, 2.55]} />
+      {/* ===== PORCH LIGHT (single, stable) ===== */}
+      <PorchLight position={[0, 2.4, 2.6]} />
 
       {/* ===== WINDOWS WITH INTERIORS ===== */}
       {/* Living room - left first floor */}
@@ -299,7 +298,8 @@ function WindowWithInterior({ position, size, glowColor, items, rotation }: {
 
   useFrame(({ clock }) => {
     if (lightRef.current) {
-      lightRef.current.intensity = 2 + Math.sin(clock.elapsedTime * 0.8 + position[0]) * 0.4;
+      // Very gentle flicker, not jarring
+      lightRef.current.intensity = 1.8 + Math.sin(clock.elapsedTime * 0.3 + position[0] * 2) * 0.15;
     }
   });
 
@@ -396,25 +396,18 @@ function GlowInterior({ position, color }: { position: [number, number, number];
 }
 
 function PorchLight({ position }: { position: [number, number, number] }) {
-  const lightRef = useRef<THREE.PointLight>(null);
-
-  useFrame(({ clock }) => {
-    if (lightRef.current) {
-      lightRef.current.intensity = 4 + Math.sin(clock.elapsedTime * 1.5) * 0.8;
-    }
-  });
-
   return (
     <group position={position}>
       <mesh>
-        <boxGeometry args={[0.12, 0.22, 0.12]} />
-        <meshStandardMaterial color="#444" metalness={0.6} roughness={0.3} />
+        <boxGeometry args={[0.15, 0.25, 0.15]} />
+        <meshStandardMaterial color="#444" metalness={0.5} roughness={0.3} />
       </mesh>
-      <mesh position={[0, -0.08, 0.04]}>
+      <mesh position={[0, -0.08, 0.05]}>
         <sphereGeometry args={[0.06, 12, 12]} />
-        <meshStandardMaterial color="#FFF5CC" emissive="#FFCC44" emissiveIntensity={3} />
+        <meshStandardMaterial color="#FFF5CC" emissive="#FFBB33" emissiveIntensity={2} />
       </mesh>
-      <pointLight ref={lightRef} position={[0, -0.3, 0.5]} color="#FFCC44" intensity={4} distance={8} decay={2} castShadow />
+      {/* Stable light - no animation to prevent flicker */}
+      <pointLight position={[0, -0.3, 0.8]} color="#FFCC55" intensity={3} distance={7} decay={2} />
     </group>
   );
 }

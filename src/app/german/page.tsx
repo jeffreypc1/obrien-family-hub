@@ -1,4 +1,5 @@
 'use client';
+import ThemedBackground from '@/components/ThemedBackground';
 
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -71,7 +72,7 @@ export default function GermanPage() {
   const levelInfo = LEVEL_INFO[activeLevel];
 
   return (
-    <div className="min-h-screen relative z-10">
+    <div className="min-h-screen relative z-10"><ThemedBackground theme="german" />
       {/* Header */}
       <div className="border-b border-white/5">
         <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">

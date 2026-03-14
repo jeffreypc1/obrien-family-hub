@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
 import { useFamilyMember } from '@/components/FamilyContext';
+import ThemedBackground from '@/components/ThemedBackground';
 
 interface Segment {
   id: string;
@@ -221,7 +222,7 @@ function WatchPageContent() {
   }
 
   return (
-    <div className="min-h-screen relative z-10">
+    <div className="min-h-screen relative z-10"><ThemedBackground theme="german" />
       {/* Header */}
       <div className="border-b border-white/5">
         <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
