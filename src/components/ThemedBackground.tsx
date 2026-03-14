@@ -52,11 +52,10 @@ export default function ThemedBackground({ theme }: { theme: string }) {
   const t = THEMES[theme] || THEMES.kitchen;
 
   return (
-    <div className="fixed inset-0 -z-10 pointer-events-none">
+    <div className="fixed inset-0 z-0 pointer-events-none" style={{ background: '#050510' }}>
       <div className={`absolute inset-0 bg-gradient-to-br ${t.gradient}`} />
       <div className="absolute inset-0" style={{ backgroundImage: t.pattern }} />
-      {/* Subtle floating emoji watermark */}
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-[200px] opacity-[0.015] select-none">
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-[200px] opacity-[0.02] select-none">
         {t.emoji}
       </div>
     </div>

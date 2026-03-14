@@ -17,6 +17,11 @@ body {
   overflow-x: hidden;
 }
 
+/* Pages with ThemedBackground override the body bg */
+.themed-page {
+  background: transparent !important;
+}
+
 /* Starfield background */
 .starfield {
   position: fixed;

@@ -135,6 +135,22 @@ model ShoppingList {
   updatedAt  DateTime @updatedAt
 }
 
+// ==================== TODOS ====================
+
+model TodoItem {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  status      String   @default("todo")
+  assignedTo  String
+  createdBy   String
+  dueDate     String?
+  startedAt   String?
+  completedAt String?
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+}
+
 // ==================== FAMILY MEMBERS (shared) ====================
 
 model FamilyMember {

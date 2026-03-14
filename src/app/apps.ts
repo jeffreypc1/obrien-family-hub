@@ -74,7 +74,7 @@ export const FAMILY_APPS: FamilyApp[] = [
     gradient: 'from-emerald-500 via-green-500 to-teal-500',
     glowClass: 'glow-green',
     accentColor: '#10B981',
-    status: 'coming-soon',
+    status: 'live',
   },
   {
     id: 'travel',
