@@ -368,22 +368,30 @@ export default function GradesPage() {
                     if (gradeFilter === 'failing' && (a.percentage === null || a.percentage >= 70)) return false;
                     if (gradeFilter === 'missing' && !a.missing) return false;
                     if (gradeFilter === 'late' && !a.late) return false;
-                    const aDate = a.gradedAt || a.dueAt;
-                    if (dateFilter !== 'all' && aDate) {
-                      const d = new Date(aDate);
-                      if (dateFilter === '7d' && now.getTime() - d.getTime() > 7 * 86400000) return false;
-                      if (dateFilter === '14d' && now.getTime() - d.getTime() > 14 * 86400000) return false;
-                      if (dateFilter === '30d' && now.getTime() - d.getTime() > 30 * 86400000) return false;
-                      if (dateFilter === '90d' && now.getTime() - d.getTime() > 90 * 86400000) return false;
-                      // Semester filters
+
+                    // Date/semester filtering
+                    if (dateFilter !== 'all') {
+                      const aDate = a.gradedAt || a.dueAt || a.submittedAt;
+
+                      // Semester filter — strict: exclude assignments outside the period
                       if (dateFilter.startsWith('sem-')) {
                         const semId = parseInt(dateFilter.split('-')[1]);
                         const period = gPeriods.find((p) => p.id === semId);
                         if (period) {
                           const start = new Date(period.start_date);
                           const end = new Date(period.end_date);
+                          if (!aDate) return false; // No date = can't confirm it's in this semester
+                          const d = new Date(aDate);
                           if (d < start || d > end) return false;
                         }
+                      } else if (aDate) {
+                        // Relative date filters
+                        const d = new Date(aDate);
+                        const daysAgo = (now.getTime() - d.getTime()) / 86400000;
+                        if (dateFilter === '7d' && daysAgo > 7) return false;
+                        if (dateFilter === '14d' && daysAgo > 14) return false;
+                        if (dateFilter === '30d' && daysAgo > 30) return false;
+                        if (dateFilter === '90d' && daysAgo > 90) return false;
                       }
                     }
                     return true;
