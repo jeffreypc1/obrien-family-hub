@@ -81,6 +81,7 @@ export default function AdminPage() {
   const [newColor, setNewColor] = useState('#E91E8C');
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
+  const [openSections, setOpenSections] = useState<Set<string>>(new Set(['members']));
 
   const fetchData = async () => {
     const res = await fetch('/api/admin');
@@ -185,6 +186,37 @@ export default function AdminPage() {
     );
   }
 
+  const toggleSection = (id: string) => {
+    setOpenSections((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const Section = ({ id, icon, title, subtitle, children }: { id: string; icon: string; title: string; subtitle?: string; children: React.ReactNode }) => {
+    const isOpen = openSections.has(id);
+    return (
+      <div className="glass rounded-2xl overflow-hidden">
+        <button onClick={() => toggleSection(id)}
+          className="w-full flex items-center gap-3 px-6 py-4 text-left hover:bg-white/[0.02] transition-colors">
+          <span className="text-xl">{icon}</span>
+          <div className="flex-1">
+            <h2 className="text-base font-bold">{title}</h2>
+            {subtitle && <p className="text-[11px] text-white/30 mt-0.5">{subtitle}</p>}
+          </div>
+          <span className={`text-white/20 transition-transform ${isOpen ? 'rotate-180' : ''}`}>▼</span>
+        </button>
+        {isOpen && (
+          <div className="px-6 pb-6 border-t border-white/5 pt-5">
+            {children}
+          </div>
+        )}
+      </div>
+    );
+  };
+
   return (
     <div className="min-h-screen relative">
       <div className="border-b border-white/5">
@@ -201,12 +233,10 @@ export default function AdminPage() {
         </div>
       </div>
 
-      <div className="max-w-4xl mx-auto px-6 py-12 space-y-10">
-        <h1 className="text-3xl font-bold">⚙️ Admin Panel</h1>
+      <div className="max-w-4xl mx-auto px-6 py-8 space-y-3">
+        <h1 className="text-3xl font-bold mb-6">⚙️ Admin Panel</h1>
 
-        {/* ====== FAMILY MEMBERS ====== */}
-        <section className="glass rounded-2xl p-6">
-          <h2 className="text-xl font-bold mb-6">👨‍👩‍👧‍👦 Family Members</h2>
+        <Section id="members" icon="👨‍👩‍👧‍👦" title="Family Members" subtitle="Add, remove, and configure PINs">
 
           <div className="space-y-3 mb-6">
             {members.map((m) => (
@@ -274,12 +304,9 @@ export default function AdminPage() {
               {saving ? '...' : 'Add Member'}
             </button>
           </div>
-        </section>
+        </Section>
 
-        {/* ====== APP VISIBILITY ====== */}
-        <section className="glass rounded-2xl p-6">
-          <h2 className="text-xl font-bold mb-2">👁️ App Visibility</h2>
-          <p className="text-white/40 text-sm mb-6">Turn apps on or off on the home page</p>
+        <Section id="visibility" icon="👁️" title="App Visibility" subtitle="Turn apps on or off on the home page">
           <div className="space-y-3">
             {(() => {
               let visibility: Record<string, boolean> = {};
@@ -307,12 +334,9 @@ export default function AdminPage() {
               });
             })()}
           </div>
-        </section>
+        </Section>
 
-        {/* ====== LOCATIONS ====== */}
-        <section className="glass rounded-2xl p-6">
-          <h2 className="text-xl font-bold mb-2">📍 Locations</h2>
-          <p className="text-white/40 text-sm mb-4">Cities for local event discovery</p>
+        <Section id="locations" icon="📍" title="Locations" subtitle="Cities for local event discovery">
           <div className="space-y-2 mb-4">
             {(() => {
               let locs: string[] = [];
@@ -340,11 +364,9 @@ export default function AdminPage() {
               input.value = '';
             }} className="px-4 py-2 rounded-xl bg-violet-500/20 text-violet-400 text-sm font-medium">Add</button>
           </div>
-        </section>
+        </Section>
 
-        {/* ====== FONT + PIN SETTINGS ====== */}
-        <section className="glass rounded-2xl p-6">
-          <h2 className="text-xl font-bold mb-6">⚙️ Settings</h2>
+        <Section id="settings" icon="⚙️" title="Settings" subtitle="Font, PIN, and security settings">
 
           <div className="space-y-6">
             {/* Font picker */}
@@ -402,12 +424,9 @@ export default function AdminPage() {
               {saving ? 'Saving...' : 'Save Settings'}
             </button>
           </div>
-        </section>
+        </Section>
 
-        {/* ====== CARD EDITOR ====== */}
-        <section className="glass rounded-2xl p-6">
-          <h2 className="text-xl font-bold mb-2">🎨 Card Names & Descriptions</h2>
-          <p className="text-white/40 text-sm mb-6">Customize how apps appear on the home page</p>
+        <Section id="cards" icon="🎨" title="Card Names & Descriptions" subtitle="Customize how apps appear on the home page">
 
           <div className="space-y-4">
             {FAMILY_APPS.map((app) => {
@@ -447,11 +466,9 @@ export default function AdminPage() {
               );
             })}
           </div>
-        </section>
+        </Section>
 
-        {/* ====== LANDING PAGE TEXT ====== */}
-        <section className="glass rounded-2xl p-6">
-          <h2 className="text-xl font-bold mb-6">🏠 Landing Page</h2>
+        <Section id="landing" icon="🏠" title="Landing Page" subtitle="Hero title, subtitle, and description text">
 
           <div className="space-y-4">
             <div>
@@ -475,12 +492,9 @@ export default function AdminPage() {
               {saving ? 'Saving...' : 'Save Changes'}
             </button>
           </div>
-        </section>
+        </Section>
 
-        {/* ====== 3D HOUSE ROOM MAPPINGS ====== */}
-        <section className="glass rounded-2xl p-6">
-          <h2 className="text-xl font-bold mb-2">🏡 3D House Room Mappings</h2>
-          <p className="text-white/40 text-sm mb-6">Choose what each room/area of the 3D house links to</p>
+        <Section id="rooms" icon="🏡" title="3D House Room Mappings" subtitle="Choose what each room of the 3D house links to">
 
           <div className="space-y-3">
             {roomMappings.map((room, idx) => (
@@ -537,7 +551,7 @@ export default function AdminPage() {
           >
             {saving ? 'Saving...' : 'Save Room Mappings'}
           </button>
-        </section>
+        </Section>
       </div>
     </div>
   );
