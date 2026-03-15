@@ -52,6 +52,8 @@ function WatchContent() {
   const [editMode, setEditMode] = useState(false);
   const [editIngredients, setEditIngredients] = useState('');
   const [editInstructions, setEditInstructions] = useState('');
+  const [extracting, setExtracting] = useState(false);
+  const [extractResult, setExtractResult] = useState('');
 
   const fetchRecipe = useCallback(async () => {
     if (!recipeId) return;
@@ -69,6 +71,42 @@ function WatchContent() {
   }, [recipeId]);
 
   useEffect(() => { fetchRecipe(); }, [fetchRecipe]);
+
+  const handleExtractRecipe = async () => {
+    if (!recipe?.youtubeId) return;
+    setExtracting(true);
+    setExtractResult('');
+    try {
+      const res = await fetch('/api/recipes/extract', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ youtubeId: recipe.youtubeId }),
+      });
+      const data = await res.json();
+
+      if (data.ingredients?.length > 0 || data.instructions?.length > 0) {
+        // Format ingredients for the editor
+        const ingText = data.ingredients.join('\n');
+        const instText = data.instructions.join('\n');
+        setEditIngredients(ingText);
+        setEditInstructions(instText);
+        setEditMode(true);
+        setExtractResult(`✅ Found ${data.ingredients.length} ingredients and ${data.instructions.length} steps! Review and save.`);
+
+        if (data.servings) setScaledServings(data.servings);
+      } else if (data.descriptionPreview) {
+        // Couldn't parse structured data, show raw description for manual copy
+        setEditIngredients(data.descriptionPreview);
+        setEditMode(true);
+        setExtractResult('⚠️ Couldn\'t auto-parse. Raw description loaded — edit manually.');
+      } else {
+        setExtractResult('❌ No recipe data found in video description or transcript.');
+      }
+    } catch (e) {
+      setExtractResult(`❌ Error: ${e instanceof Error ? e.message : 'Unknown'}`);
+    }
+    setExtracting(false);
+  };
 
   const ingredients: Ingredient[] = recipe?.ingredientsJson ? JSON.parse(recipe.ingredientsJson) : [];
   const instructions: string[] = recipe?.instructionsJson ? JSON.parse(recipe.instructionsJson) : [];
@@ -220,6 +258,12 @@ function WatchContent() {
             className="px-5 py-2.5 rounded-xl text-sm font-medium bg-white/5 text-white/50 border border-white/10 hover:text-white transition-all">
             ✏️ {editMode ? 'Cancel Edit' : 'Edit Recipe'}
           </button>
+          {recipe.youtubeId && ingredients.length === 0 && (
+            <button onClick={handleExtractRecipe} disabled={extracting}
+              className="px-5 py-2.5 rounded-xl text-sm font-medium bg-gradient-to-r from-orange-500/15 to-red-500/15 text-orange-400 border border-orange-500/20 hover:from-orange-500/25 hover:to-red-500/25 transition-all disabled:opacity-50">
+              {extracting ? '🔄 Extracting...' : '🤖 Extract Recipe from Video'}
+            </button>
+          )}
           {ingredients.length > 0 && (
             <button onClick={addToShoppingList}
               className="px-5 py-2.5 rounded-xl text-sm font-medium bg-green-500/10 text-green-400 border border-green-500/20 hover:bg-green-500/20 transition-all ml-auto">
@@ -227,6 +271,16 @@ function WatchContent() {
             </button>
           )}
         </div>
+
+        {/* Extract result */}
+        {extractResult && (
+          <div className={`mb-4 px-4 py-3 rounded-xl text-sm ${
+            extractResult.startsWith('✅') ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' :
+            extractResult.startsWith('⚠️') ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' :
+            'bg-red-500/10 text-red-400 border border-red-500/20'}`}>
+            {extractResult}
+          </div>
+        )}
 
         {/* Edit mode */}
         {editMode && (

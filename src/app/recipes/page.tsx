@@ -305,7 +305,7 @@ export default function RecipesPage() {
                       </div>
                     </Link>
 
-                    {/* Quick rate bar */}
+                    {/* Quick rate + tag bar */}
                     <div className="flex items-center gap-1 mt-2 px-1">
                       {[1, 2, 3, 4, 5].map((star) => (
                         <button key={star} onClick={() => handleRate(item.id, star)}
@@ -313,7 +313,19 @@ export default function RecipesPage() {
                           {star <= myLatest ? '⭐' : '☆'}
                         </button>
                       ))}
-                      {myLatest > 0 && <span className="text-[10px] text-white/20 ml-auto">Your: {myLatest}★</span>}
+                      {myLatest > 0 && <span className="text-[10px] text-white/20 ml-1">Your: {myLatest}★</span>}
+                      <button onClick={async (e) => {
+                        e.preventDefault();
+                        const tagNames = prompt('Enter tags (comma separated):\n\nAvailable: ' + allTags.map((t) => t.name).join(', ') + '\n\nCurrent: ' + itemTags.join(', '));
+                        if (tagNames !== null) {
+                          const tags = tagNames.split(',').map((t) => t.trim()).filter(Boolean);
+                          await fetch('/api/recipes/items', { method: 'PUT', headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ id: item.id, tagsJson: JSON.stringify(tags) }) });
+                          fetchItems();
+                        }
+                      }} className="text-[10px] text-white/15 hover:text-white/40 ml-auto transition-colors" title="Edit tags">
+                        🏷️
+                      </button>
                     </div>
                   </motion.div>
                 );
