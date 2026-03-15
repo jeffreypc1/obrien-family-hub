@@ -323,8 +323,8 @@ export default function RecipesPage() {
                             body: JSON.stringify({ id: item.id, tagsJson: JSON.stringify(tags) }) });
                           fetchItems();
                         }
-                      }} className="text-[10px] text-white/15 hover:text-white/40 ml-auto transition-colors" title="Edit tags">
-                        🏷️
+                      }} className="px-2 py-1 rounded-lg bg-white/5 text-white/40 hover:text-white hover:bg-white/10 text-xs ml-auto transition-all" title="Edit tags">
+                        🏷️ Tags
                       </button>
                     </div>
                   </motion.div>
