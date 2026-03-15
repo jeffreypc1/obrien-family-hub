@@ -380,6 +380,23 @@ export default function AdminPage() {
               </button>
             </div>
 
+            {/* Change admin PIN */}
+            <div className="p-4 bg-white/[0.02] rounded-xl">
+              <h3 className="text-sm font-medium mb-2">🔑 Admin Panel PIN</h3>
+              <p className="text-[10px] text-white/25 mb-3">Change the PIN used to access this admin panel. Current default: obrien2026</p>
+              <div className="flex gap-2">
+                <input type="text" id="new-admin-pin" placeholder="New admin PIN..."
+                  className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-white/20 focus:outline-none" />
+                <button onClick={() => {
+                  const input = document.getElementById('new-admin-pin') as HTMLInputElement;
+                  if (input.value.trim()) {
+                    apiCall({ config: { adminPin: input.value.trim() } });
+                    input.value = '';
+                  }
+                }} className="px-4 py-2 rounded-lg bg-white/5 text-white/40 text-sm hover:text-white">Update</button>
+              </div>
+            </div>
+
             <button onClick={handleSaveConfig} disabled={saving}
               className="px-6 py-3 rounded-xl bg-gradient-to-r from-purple-500 to-pink-500 text-white font-medium disabled:opacity-30">
               {saving ? 'Saving...' : 'Save Settings'}
