@@ -476,6 +476,10 @@ export default function AdminPage() {
           <GrabTemplatesAdmin currentMember={members[0]?.name || 'Admin'} />
         </Section>
 
+        <Section id="chore-collections" icon="📦" title="Chore Collections" subtitle="Weekly bundles — all items must be done by deadline to earn the reward">
+          <ChoreCollectionsAdmin members={members} currentMember={members[0]?.name || 'Admin'} />
+        </Section>
+
         <Section id="cards" icon="🎨" title="Card Names & Descriptions" subtitle="Customize how apps appear on the home page">
 
           <div className="space-y-4">
@@ -854,6 +858,147 @@ function GrabTemplatesAdmin({ currentMember }: { currentMember: string }) {
           <button onClick={handleAddCustom} disabled={!newTitle.trim()} className="px-4 py-2 rounded-lg bg-white/5 text-white/40 text-xs hover:text-white disabled:opacity-20">Add</button>
         </div>
       </div>
+    </div>
+  );
+}
+
+const DAYS_FULL = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+interface ChoreCollectionData {
+  id: string; title: string; assignedTo: string; dollarAmount: number; dueDay: number;
+  items: Array<{ id: string; title: string; dayOfWeek: number }>;
+  weeks: Array<{ id: string; weekStart: string; dueDate: string; completedItemsJson: string; allComplete: number }>;
+}
+
+function ChoreCollectionsAdmin({ members, currentMember }: { members: Array<{ id: string; name: string; emoji: string }>; currentMember: string }) {
+  const [collections, setCollections] = useState<ChoreCollectionData[]>([]);
+  const [showCreate, setShowCreate] = useState(false);
+  const [newTitle, setNewTitle] = useState('');
+  const [newAssign, setNewAssign] = useState('');
+  const [newAmount, setNewAmount] = useState('');
+  const [newDueDay, setNewDueDay] = useState(6);
+  const [addingItemTo, setAddingItemTo] = useState<string | null>(null);
+  const [newItemTitle, setNewItemTitle] = useState('');
+  const [newItemDay, setNewItemDay] = useState(1);
+
+  const fetchCollections = () => fetch('/api/chore-collections').then((r) => r.json()).then(setCollections);
+  useEffect(() => { fetchCollections(); }, []);
+
+  const handleCreate = async () => {
+    if (!newTitle.trim() || !newAssign || !newAmount) return;
+    await fetch('/api/chore-collections', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'create', title: newTitle.trim(), assignedTo: newAssign, createdBy: currentMember, dollarAmount: parseFloat(newAmount), dueDay: newDueDay }),
+    });
+    setNewTitle(''); setNewAmount(''); setShowCreate(false);
+    fetchCollections();
+  };
+
+  const handleAddItem = async (collectionId: string) => {
+    if (!newItemTitle.trim()) return;
+    await fetch('/api/chore-collections', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'add-item', collectionId, title: newItemTitle.trim(), dayOfWeek: newItemDay }),
+    });
+    setNewItemTitle(''); setAddingItemTo(null);
+    fetchCollections();
+  };
+
+  const handleGenerate = async (collectionId: string) => {
+    await fetch('/api/chore-collections', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'generate-week', collectionId }),
+    });
+    fetchCollections();
+  };
+
+  const handleDeleteItem = async (itemId: string) => {
+    await fetch(`/api/chore-collections?itemId=${itemId}`, { method: 'DELETE' });
+    fetchCollections();
+  };
+
+  const handleDeleteCollection = async (id: string) => {
+    if (!confirm('Delete this collection?')) return;
+    await fetch(`/api/chore-collections?id=${id}`, { method: 'DELETE' });
+    fetchCollections();
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* Existing collections */}
+      {collections.map((c) => (
+        <div key={c.id} className="p-4 bg-white/[0.02] rounded-xl space-y-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <h4 className="font-bold text-sm">{c.title}</h4>
+              <p className="text-[10px] text-white/30">
+                {members.find((m) => m.name === c.assignedTo)?.emoji} {c.assignedTo} · 💰 ${c.dollarAmount.toFixed(2)} · Due {DAYS_FULL[c.dueDay]}
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <button onClick={() => handleGenerate(c.id)} className="px-3 py-1 rounded-lg bg-emerald-500/15 text-emerald-400 text-[10px] font-medium">🔄 Generate Week</button>
+              <button onClick={() => handleDeleteCollection(c.id)} className="text-white/10 hover:text-red-400 text-xs">✕</button>
+            </div>
+          </div>
+
+          {/* Items */}
+          <div className="space-y-1">
+            {c.items.map((item) => (
+              <div key={item.id} className="flex items-center gap-3 p-2 bg-white/[0.02] rounded-lg group">
+                <span className="text-[10px] text-white/25 w-16">{DAYS_FULL[item.dayOfWeek].slice(0, 3)}</span>
+                <span className="text-sm flex-1">{item.title}</span>
+                <button onClick={() => handleDeleteItem(item.id)} className="text-white/10 hover:text-red-400 text-xs opacity-0 group-hover:opacity-100">✕</button>
+              </div>
+            ))}
+          </div>
+
+          {/* Add item */}
+          {addingItemTo === c.id ? (
+            <div className="flex gap-2">
+              <select value={newItemDay} onChange={(e) => setNewItemDay(Number(e.target.value))}
+                className="bg-white/5 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white [&>option]:bg-gray-900">
+                {DAYS_FULL.map((d, i) => <option key={i} value={i}>{d}</option>)}
+              </select>
+              <input type="text" value={newItemTitle} onChange={(e) => setNewItemTitle(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleAddItem(c.id)}
+                placeholder="Chore name..." autoFocus
+                className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white placeholder-white/20 focus:outline-none" />
+              <button onClick={() => handleAddItem(c.id)} className="px-3 py-1.5 rounded-lg bg-emerald-500/15 text-emerald-400 text-xs">Add</button>
+              <button onClick={() => setAddingItemTo(null)} className="text-white/20 text-xs">✕</button>
+            </div>
+          ) : (
+            <button onClick={() => setAddingItemTo(c.id)} className="text-[10px] text-white/20 hover:text-white/40">+ Add chore item</button>
+          )}
+        </div>
+      ))}
+
+      {/* Create new collection */}
+      {!showCreate ? (
+        <button onClick={() => setShowCreate(true)} className="w-full py-3 rounded-xl border border-dashed border-white/10 text-white/25 hover:text-white/50 text-sm">+ New Chore Collection</button>
+      ) : (
+        <div className="p-4 bg-white/[0.02] rounded-xl space-y-3">
+          <input type="text" value={newTitle} onChange={(e) => setNewTitle(e.target.value)} placeholder="Collection name (e.g., Weekly Chores)"
+            className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-white/20 focus:outline-none" />
+          <div className="grid grid-cols-3 gap-3">
+            <select value={newAssign} onChange={(e) => setNewAssign(e.target.value)}
+              className="bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white [&>option]:bg-gray-900">
+              <option value="">Assign to...</option>
+              {members.map((m) => <option key={m.id} value={m.name}>{m.emoji} {m.name}</option>)}
+            </select>
+            <input type="number" step="1" min="1" value={newAmount} onChange={(e) => setNewAmount(e.target.value)} placeholder="$ reward"
+              className="bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-white/20 focus:outline-none" />
+            <select value={newDueDay} onChange={(e) => setNewDueDay(Number(e.target.value))}
+              className="bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white [&>option]:bg-gray-900">
+              {DAYS_FULL.map((d, i) => <option key={i} value={i}>Due {d}</option>)}
+            </select>
+          </div>
+          <div className="flex gap-2">
+            <button onClick={handleCreate} disabled={!newTitle.trim() || !newAssign || !newAmount}
+              className="px-4 py-2 rounded-lg bg-emerald-500/15 text-emerald-400 text-xs font-medium disabled:opacity-30">Create</button>
+            <button onClick={() => setShowCreate(false)} className="text-white/20 text-xs">Cancel</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

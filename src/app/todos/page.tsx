@@ -38,7 +38,13 @@ const COLUMNS = [
 export default function TodosPage() {
   const { currentMember, members, setShowPicker } = useFamilyMember();
   const [todos, setTodos] = useState<TodoItem[]>([]);
-  const [tab, setTab] = useState<'mine' | 'grab' | 'assigned' | 'manage' | 'archived'>('mine');
+  const [tab, setTab] = useState<'mine' | 'grab' | 'collections' | 'assigned' | 'manage' | 'archived'>('mine');
+  const [choreCollections, setChoreCollections] = useState<Array<{
+    id: string; title: string; assignedTo: string; dollarAmount: number; dueDay: number;
+    items: Array<{ id: string; title: string; dayOfWeek: number }>;
+    weeks: Array<{ id: string; weekStart: string; dueDate: string; completedItemsJson: string; allComplete: number }>;
+  }>>([]);
+  const [grabLockUntil, setGrabLockUntil] = useState<string | null>(null);
   const [showNew, setShowNew] = useState(false);
   const [newTitle, setNewTitle] = useState('');
   const [newDesc, setNewDesc] = useState('');
@@ -93,6 +99,27 @@ export default function TodosPage() {
       setIsParent(memberIdx !== undefined && memberIdx < 2);
     }).catch(() => {});
     fetch('/api/grab-templates').then((r) => r.json()).then(setTemplates).catch(() => {});
+
+    // Fetch chore collections
+    fetch('/api/chore-collections').then((r) => r.json()).then((cols: typeof choreCollections) => {
+      setChoreCollections(cols);
+      // Check if any collection for this member has an overdue incomplete week
+      const myCollections = cols.filter((c: { assignedTo: string }) => c.assignedTo === currentMember?.name);
+      const today = new Date().toISOString().split('T')[0];
+      for (const col of myCollections) {
+        for (const week of col.weeks) {
+          if (!week.allComplete && week.dueDate < today) {
+            // Lock grab tasks until 2 days after due date
+            const lockDate = new Date(week.dueDate + 'T00:00:00');
+            lockDate.setDate(lockDate.getDate() + 2);
+            const lockStr = lockDate.toISOString().split('T')[0];
+            if (today < lockStr) {
+              setGrabLockUntil(lockStr);
+            }
+          }
+        }
+      }
+    }).catch(() => {});
   }, [currentMember]);
 
   useEffect(() => { fetchTodos(); }, [fetchTodos]);
@@ -479,6 +506,7 @@ export default function TodosPage() {
         <div className="flex gap-1 bg-white/5 rounded-xl p-1 mb-8 overflow-x-auto">
           {([
             { key: 'mine' as const, label: '📋 My Tasks', show: true },
+            { key: 'collections' as const, label: `📦 Collections${choreCollections.filter((c) => c.assignedTo === currentMember?.name).length > 0 ? ` (${choreCollections.filter((c) => c.assignedTo === currentMember?.name).length})` : ''}`, show: choreCollections.some((c) => c.assignedTo === currentMember?.name) },
             { key: 'grab' as const, label: `🏷️ Grab${unclaimedTasks.length > 0 ? ` (${unclaimedTasks.length})` : ''}`, show: true },
             { key: 'assigned' as const, label: '👥 Assigned', show: true },
             { key: 'manage' as const, label: '⚙️ Manage', show: isParent },
@@ -562,7 +590,7 @@ export default function TodosPage() {
         </AnimatePresence>
 
         {/* ====== KANBAN BOARD (mine / assigned tabs) ====== */}
-        {tab !== 'archived' && tab !== 'grab' && tab !== 'manage' && (
+        {tab !== 'archived' && tab !== 'grab' && tab !== 'manage' && tab !== 'collections' && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             {COLUMNS.map((col) => {
               const items = getColumnItems(col.id);
@@ -662,9 +690,92 @@ export default function TodosPage() {
           </div>
         )}
 
+        {/* ====== COLLECTIONS TAB ====== */}
+        {tab === 'collections' && (
+          <div className="space-y-6">
+            {choreCollections.filter((c) => c.assignedTo === currentMember?.name).map((col) => {
+              const currentWeek = col.weeks[0]; // Most recent
+              const completedItems: string[] = currentWeek ? JSON.parse(currentWeek.completedItemsJson || '[]') : [];
+              const progress = col.items.length > 0 ? (completedItems.length / col.items.length) * 100 : 0;
+              const isOverdue = currentWeek && currentWeek.dueDate < new Date().toISOString().split('T')[0] && !currentWeek.allComplete;
+              const DAYS_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+              return (
+                <div key={col.id} className="glass rounded-2xl p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <h3 className="text-lg font-bold">{col.title}</h3>
+                      <p className="text-white/40 text-sm">💰 ${col.dollarAmount.toFixed(2)} reward · Due {['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][col.dueDay]}</p>
+                    </div>
+                    {currentWeek?.allComplete ? (
+                      <span className="px-4 py-2 rounded-xl bg-emerald-500/15 text-emerald-400 text-sm font-bold">✅ Complete!</span>
+                    ) : isOverdue ? (
+                      <span className="px-4 py-2 rounded-xl bg-red-500/15 text-red-400 text-sm font-bold">❌ Overdue</span>
+                    ) : (
+                      <span className="text-white/30 text-sm">{completedItems.length}/{col.items.length} done</span>
+                    )}
+                  </div>
+
+                  {/* Progress bar */}
+                  <div className="h-3 bg-white/5 rounded-full overflow-hidden mb-4">
+                    <div className={`h-full rounded-full transition-all ${currentWeek?.allComplete ? 'bg-emerald-500' : isOverdue ? 'bg-red-500' : 'bg-amber-500'}`}
+                      style={{ width: `${progress}%` }} />
+                  </div>
+
+                  {/* Chore items as checkboxes */}
+                  {currentWeek ? (
+                    <div className="space-y-2">
+                      {col.items.map((item) => {
+                        const isDone = completedItems.includes(item.id);
+                        return (
+                          <button key={item.id} onClick={async () => {
+                            await fetch('/api/chore-collections', {
+                              method: 'POST', headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ action: 'toggle-item', weekId: currentWeek.id, itemId: item.id }),
+                            });
+                            fetchTodos();
+                          }} className={`w-full flex items-center gap-3 p-3 rounded-xl text-left transition-all ${isDone ? 'bg-emerald-500/5' : 'bg-white/[0.02] hover:bg-white/[0.04]'}`}>
+                            <div className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center text-sm transition-all ${
+                              isDone ? 'bg-emerald-500 border-emerald-500 text-white' : 'border-white/15'}`}>
+                              {isDone && '✓'}
+                            </div>
+                            <span className="text-xs text-white/25 w-8">{DAYS_NAMES[item.dayOfWeek]}</span>
+                            <span className={`text-sm ${isDone ? 'line-through text-white/30' : 'text-white'}`}>{item.title}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <p className="text-white/20 text-sm text-center py-4">No week generated yet. Ask a parent to generate this week.</p>
+                  )}
+
+                  {/* Completion message */}
+                  {currentWeek?.allComplete && (
+                    <div className="mt-4 p-4 bg-emerald-500/10 rounded-xl text-center">
+                      <p className="text-emerald-400 font-bold">🎉 All done! ${col.dollarAmount.toFixed(2)} earned!</p>
+                    </div>
+                  )}
+                  {isOverdue && (
+                    <div className="mt-4 p-4 bg-red-500/10 rounded-xl text-center">
+                      <p className="text-red-400 font-bold">⏰ Missed deadline — no reward this week</p>
+                      <p className="text-red-400/50 text-xs mt-1">Grab tasks locked until 2 days after deadline</p>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+
         {/* ====== GRAB TASKS TAB ====== */}
         {tab === 'grab' && (
           <div>
+            {grabLockUntil && (
+              <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-xl text-center">
+                <p className="text-red-400 font-bold">🔒 Grab tasks locked</p>
+                <p className="text-red-400/60 text-xs mt-1">You missed a chore collection deadline. Locked until {new Date(grabLockUntil + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}.</p>
+              </div>
+            )}
             <div className="text-center mb-6">
               <h2 className="text-lg font-bold mb-1">🏷️ Available Tasks</h2>
               <p className="text-white/30 text-xs">Grab a task to add it to your to-do list and earn money!</p>
@@ -700,7 +811,7 @@ export default function TodosPage() {
                       <span className="text-[10px] text-white/15">Posted by {item.createdBy}</span>
                     </div>
                     <button onClick={() => handleClaimTask(item.id)}
-                      disabled={!item.exemptFromCap && (item.dollarAmount || 0) > 0 && myActiveAmount + (item.dollarAmount || 0) > maxActive}
+                      disabled={!!grabLockUntil || (!item.exemptFromCap && (item.dollarAmount || 0) > 0 && myActiveAmount + (item.dollarAmount || 0) > maxActive)}
                       className={`w-full py-3 rounded-xl text-sm font-medium transition-all ${
                         !item.exemptFromCap && (item.dollarAmount || 0) > 0 && myActiveAmount + (item.dollarAmount || 0) > maxActive
                           ? 'bg-white/5 text-white/20 cursor-not-allowed'
