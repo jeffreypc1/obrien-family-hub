@@ -477,7 +477,7 @@ export default function AdminPage() {
         </Section>
 
         <Section id="grade-incentives" icon="🎓" title="Grade Incentives" subtitle="GPA multipliers and missing assignment penalties for chore payments">
-          <GradeIncentivesAdmin />
+          <GradeIncentivesAdmin adminPin={pin} />
         </Section>
 
         <Section id="chore-collections" icon="📦" title="Chore Collections" subtitle="Weekly bundles — all items must be done by deadline to earn the reward">
@@ -1010,7 +1010,7 @@ function ChoreCollectionsAdmin({ members, currentMember }: { members: Array<{ id
 interface GpaMultiplier { minGpa: number; maxGpa: number; multiplier: number; label: string; }
 interface MissingPenalty { minMissing: number; maxMissing: number; adjustment: number; label: string; }
 
-function GradeIncentivesAdmin() {
+function GradeIncentivesAdmin({ adminPin }: { adminPin: string }) {
   const [multipliers, setMultipliers] = useState<GpaMultiplier[]>([]);
   const [penalties, setPenalties] = useState<MissingPenalty[]>([]);
   const [saving, setSaving] = useState(false);
@@ -1029,10 +1029,9 @@ function GradeIncentivesAdmin() {
 
   const handleSave = async () => {
     setSaving(true);
-    const pin = localStorage.getItem('admin-pin') || prompt('Admin PIN:') || '';
     await fetch('/api/admin', {
       method: 'PUT', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ pin, config: { gradeMultipliersJson: JSON.stringify(multipliers), missingPenaltiesJson: JSON.stringify(penalties) } }),
+      body: JSON.stringify({ pin: adminPin, config: { gradeMultipliersJson: JSON.stringify(multipliers), missingPenaltiesJson: JSON.stringify(penalties) } }),
     });
     setSaving(false);
     setMsg('✓ Saved!');
