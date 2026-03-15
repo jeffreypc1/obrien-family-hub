@@ -45,6 +45,7 @@ export default function TodosPage() {
     weeks: Array<{ id: string; weekStart: string; dueDate: string; completedItemsJson: string; allComplete: number }>;
   }>>([]);
   const [grabLockUntil, setGrabLockUntil] = useState<string | null>(null);
+  const [gradeBonus, setGradeBonus] = useState<{ multiplier: number; label: string; gpa: number; missingAdj: number; missingLabel: string; missingCount: number } | null>(null);
   const [showNew, setShowNew] = useState(false);
   const [newTitle, setNewTitle] = useState('');
   const [newDesc, setNewDesc] = useState('');
@@ -99,6 +100,43 @@ export default function TodosPage() {
       setIsParent(memberIdx !== undefined && memberIdx < 2);
     }).catch(() => {});
     fetch('/api/grab-templates').then((r) => r.json()).then(setTemplates).catch(() => {});
+
+    // Fetch grade multiplier for current member
+    if (currentMember) {
+      Promise.all([
+        fetch('/api/admin').then((r) => r.json()),
+        fetch('/api/grades').then((r) => r.json()).catch(() => null),
+      ]).then(([adminData, gradesData]) => {
+        if (!gradesData?.students || !adminData?.config) return;
+        const student = gradesData.students.find((s: { name: string }) =>
+          currentMember.name && s.name.toLowerCase().includes(currentMember.name.toLowerCase().split(' ')[0])
+        );
+        if (!student?.yearGpa) return;
+
+        let multipliers: Array<{ minGpa: number; maxGpa: number; multiplier: number; label: string }> = [];
+        let penalties: Array<{ minMissing: number; maxMissing: number; adjustment: number; label: string }> = [];
+        try { multipliers = JSON.parse(adminData.config.gradeMultipliersJson || '[]'); } catch {}
+        try { penalties = JSON.parse(adminData.config.missingPenaltiesJson || '[]'); } catch {}
+
+        const gpa = student.yearGpa;
+        const tier = multipliers.find((m) => gpa >= m.minGpa && gpa <= m.maxGpa);
+
+        // Count missing (we don't have detail here, use 0 as default)
+        const missingCount = 0; // Would need detail API call
+        const missingTier = penalties.find((p) => missingCount >= p.minMissing && missingCount <= p.maxMissing);
+
+        if (tier) {
+          setGradeBonus({
+            multiplier: tier.multiplier,
+            label: tier.label,
+            gpa,
+            missingAdj: missingTier?.adjustment || 0,
+            missingLabel: missingTier?.label || '',
+            missingCount,
+          });
+        }
+      }).catch(() => {});
+    }
 
     // Fetch chore collections
     fetch('/api/chore-collections').then((r) => r.json()).then((cols: typeof choreCollections) => {
@@ -478,10 +516,31 @@ export default function TodosPage() {
               </div>
             </div>
 
+            {/* Grade bonus card */}
+            {gradeBonus && (
+              <div className="p-3 bg-white/[0.03] rounded-xl mb-4 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <span className="text-2xl">🎓</span>
+                  <div>
+                    <span className="text-sm font-bold" style={{ color: gradeBonus.multiplier >= 1.5 ? '#22C55E' : gradeBonus.multiplier >= 1 ? '#60A5FA' : '#EF4444' }}>
+                      {gradeBonus.label} — {gradeBonus.multiplier}x multiplier
+                    </span>
+                    <span className="text-sm text-white/25 block">GPA: {gradeBonus.gpa.toFixed(2)}</span>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <span className="text-sm text-white/30">Adjusted payout:</span>
+                  <span className="text-lg font-bold text-emerald-400 block">
+                    ${(myPendingPayout * gradeBonus.multiplier + gradeBonus.missingAdj).toFixed(2)}
+                  </span>
+                </div>
+              </div>
+            )}
+
             {/* Payout progress bar */}
             <div className="flex items-center justify-between mb-1">
-              <span className="text-[10px] text-white/30">Payout progress</span>
-              <span className="text-[10px] text-white/30">${myPendingPayout.toFixed(2)} / ${minPayout.toFixed(2)}</span>
+              <span className="text-sm text-white/30">Payout progress</span>
+              <span className="text-sm text-white/30">${myPendingPayout.toFixed(2)} / ${minPayout.toFixed(2)}</span>
             </div>
             <div className="h-2.5 bg-white/5 rounded-full overflow-hidden">
               <motion.div
@@ -1074,6 +1133,14 @@ export default function TodosPage() {
                 <div className="text-4xl mb-2">💸</div>
                 <h2 className="text-xl font-bold">Confirm Payment</h2>
                 <p className="text-3xl font-bold text-emerald-400 mt-2">${paymentModal.amount.toFixed(2)}</p>
+                {gradeBonus && gradeBonus.multiplier !== 1 && (
+                  <div className="mt-2 p-2 bg-white/5 rounded-xl">
+                    <p className="text-sm text-white/40">🎓 Grade bonus: {gradeBonus.label} ({gradeBonus.multiplier}x)</p>
+                    <p className="text-lg font-bold text-emerald-400">
+                      Adjusted: ${(paymentModal.amount * gradeBonus.multiplier).toFixed(2)}
+                    </p>
+                  </div>
+                )}
               </div>
 
               <div className="space-y-4">

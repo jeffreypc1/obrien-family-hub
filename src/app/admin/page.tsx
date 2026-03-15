@@ -476,6 +476,10 @@ export default function AdminPage() {
           <GrabTemplatesAdmin currentMember={members[0]?.name || 'Admin'} />
         </Section>
 
+        <Section id="grade-incentives" icon="🎓" title="Grade Incentives" subtitle="GPA multipliers and missing assignment penalties for chore payments">
+          <GradeIncentivesAdmin />
+        </Section>
+
         <Section id="chore-collections" icon="📦" title="Chore Collections" subtitle="Weekly bundles — all items must be done by deadline to earn the reward">
           <ChoreCollectionsAdmin members={members} currentMember={members[0]?.name || 'Admin'} />
         </Section>
@@ -999,6 +1003,139 @@ function ChoreCollectionsAdmin({ members, currentMember }: { members: Array<{ id
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+interface GpaMultiplier { minGpa: number; maxGpa: number; multiplier: number; label: string; }
+interface MissingPenalty { minMissing: number; maxMissing: number; adjustment: number; label: string; }
+
+function GradeIncentivesAdmin() {
+  const [multipliers, setMultipliers] = useState<GpaMultiplier[]>([]);
+  const [penalties, setPenalties] = useState<MissingPenalty[]>([]);
+  const [saving, setSaving] = useState(false);
+  const [msg, setMsg] = useState('');
+
+  useEffect(() => {
+    fetch('/api/admin').then((r) => r.json()).then((data) => {
+      if (data.config?.gradeMultipliersJson) {
+        try { setMultipliers(JSON.parse(data.config.gradeMultipliersJson)); } catch {}
+      }
+      if (data.config?.missingPenaltiesJson) {
+        try { setPenalties(JSON.parse(data.config.missingPenaltiesJson)); } catch {}
+      }
+    });
+  }, []);
+
+  const handleSave = async () => {
+    setSaving(true);
+    const pin = localStorage.getItem('admin-pin') || prompt('Admin PIN:') || '';
+    await fetch('/api/admin', {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pin, config: { gradeMultipliersJson: JSON.stringify(multipliers), missingPenaltiesJson: JSON.stringify(penalties) } }),
+    });
+    setSaving(false);
+    setMsg('✓ Saved!');
+    setTimeout(() => setMsg(''), 3000);
+  };
+
+  const updateMultiplier = (idx: number, field: string, value: string) => {
+    setMultipliers((prev) => prev.map((m, i) => i === idx ? { ...m, [field]: field === 'label' ? value : parseFloat(value) || 0 } : m));
+  };
+
+  const updatePenalty = (idx: number, field: string, value: string) => {
+    setPenalties((prev) => prev.map((p, i) => i === idx ? { ...p, [field]: field === 'label' ? value : parseFloat(value) || 0 } : p));
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* GPA Multipliers */}
+      <div>
+        <h4 className="text-sm font-bold text-white/50 mb-3">📊 GPA Multipliers</h4>
+        <p className="text-sm text-white/25 mb-4">Weekly chore earnings are multiplied based on current GPA. A 2.0x multiplier means double pay!</p>
+        <div className="space-y-2">
+          <div className="grid grid-cols-5 gap-2 text-sm text-white/30 font-medium px-2">
+            <span>Label</span><span>Min GPA</span><span>Max GPA</span><span>Multiplier</span><span></span>
+          </div>
+          {multipliers.map((m, i) => (
+            <div key={i} className="grid grid-cols-5 gap-2 items-center">
+              <input value={m.label} onChange={(e) => updateMultiplier(i, 'label', e.target.value)}
+                className="bg-white/5 border border-white/10 rounded-lg px-2 py-2 text-sm text-white focus:outline-none" />
+              <input type="number" step="0.1" value={m.minGpa} onChange={(e) => updateMultiplier(i, 'minGpa', e.target.value)}
+                className="bg-white/5 border border-white/10 rounded-lg px-2 py-2 text-sm text-white focus:outline-none" />
+              <input type="number" step="0.01" value={m.maxGpa} onChange={(e) => updateMultiplier(i, 'maxGpa', e.target.value)}
+                className="bg-white/5 border border-white/10 rounded-lg px-2 py-2 text-sm text-white focus:outline-none" />
+              <div className="flex items-center gap-1">
+                <input type="number" step="0.05" value={m.multiplier} onChange={(e) => updateMultiplier(i, 'multiplier', e.target.value)}
+                  className="bg-white/5 border border-white/10 rounded-lg px-2 py-2 text-sm text-white focus:outline-none w-20" />
+                <span className="text-sm text-white/20">x</span>
+              </div>
+              <button onClick={() => setMultipliers((prev) => prev.filter((_, j) => j !== i))}
+                className="text-white/15 hover:text-red-400 text-sm">✕</button>
+            </div>
+          ))}
+          <button onClick={() => setMultipliers((prev) => [...prev, { minGpa: 0, maxGpa: 0, multiplier: 1, label: '' }])}
+            className="text-sm text-white/25 hover:text-white/50">+ Add tier</button>
+        </div>
+      </div>
+
+      {/* Missing Assignment Adjustments */}
+      <div>
+        <h4 className="text-sm font-bold text-white/50 mb-3">⚠️ Missing Assignment Adjustments</h4>
+        <p className="text-sm text-white/25 mb-4">Positive = bonus added. Negative = percentage deducted from weekly earnings.</p>
+        <div className="space-y-2">
+          <div className="grid grid-cols-5 gap-2 text-sm text-white/30 font-medium px-2">
+            <span>Label</span><span>Min Missing</span><span>Max Missing</span><span>Adjustment %</span><span></span>
+          </div>
+          {penalties.map((p, i) => (
+            <div key={i} className="grid grid-cols-5 gap-2 items-center">
+              <input value={p.label} onChange={(e) => updatePenalty(i, 'label', e.target.value)}
+                className="bg-white/5 border border-white/10 rounded-lg px-2 py-2 text-sm text-white focus:outline-none" />
+              <input type="number" value={p.minMissing} onChange={(e) => updatePenalty(i, 'minMissing', e.target.value)}
+                className="bg-white/5 border border-white/10 rounded-lg px-2 py-2 text-sm text-white focus:outline-none" />
+              <input type="number" value={p.maxMissing} onChange={(e) => updatePenalty(i, 'maxMissing', e.target.value)}
+                className="bg-white/5 border border-white/10 rounded-lg px-2 py-2 text-sm text-white focus:outline-none" />
+              <div className="flex items-center gap-1">
+                <input type="number" step="5" value={p.adjustment} onChange={(e) => updatePenalty(i, 'adjustment', e.target.value)}
+                  className={`bg-white/5 border border-white/10 rounded-lg px-2 py-2 text-sm focus:outline-none w-20 ${p.adjustment > 0 ? 'text-emerald-400' : p.adjustment < 0 ? 'text-red-400' : 'text-white'}`} />
+                <span className="text-sm text-white/20">{p.adjustment > 0 ? '$' : '%'}</span>
+              </div>
+              <button onClick={() => setPenalties((prev) => prev.filter((_, j) => j !== i))}
+                className="text-white/15 hover:text-red-400 text-sm">✕</button>
+            </div>
+          ))}
+          <button onClick={() => setPenalties((prev) => [...prev, { minMissing: 0, maxMissing: 0, adjustment: 0, label: '' }])}
+            className="text-sm text-white/25 hover:text-white/50">+ Add tier</button>
+        </div>
+      </div>
+
+      {/* Preview */}
+      <div className="p-4 bg-white/[0.02] rounded-xl">
+        <h4 className="text-sm font-bold text-white/40 mb-3">📋 Preview: $20 base weekly earnings</h4>
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+          {multipliers.map((m) => {
+            const base = 20;
+            const adjusted = base * m.multiplier;
+            return (
+              <div key={m.label} className="text-center p-2 bg-white/[0.02] rounded-lg">
+                <span className="text-sm text-white/40 block">{m.label}</span>
+                <span className="text-sm text-white/20 block">{m.minGpa}–{m.maxGpa} GPA</span>
+                <span className="text-lg font-bold block" style={{ color: m.multiplier >= 1.5 ? '#22C55E' : m.multiplier >= 1 ? '#60A5FA' : '#EF4444' }}>
+                  ${adjusted.toFixed(0)} <span className="text-sm font-normal">({m.multiplier}x)</span>
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="flex items-center gap-3">
+        <button onClick={handleSave} disabled={saving}
+          className="px-6 py-3 rounded-xl bg-gradient-to-r from-purple-500 to-pink-500 text-white font-medium disabled:opacity-30">
+          {saving ? 'Saving...' : 'Save Incentives'}
+        </button>
+        {msg && <span className="text-emerald-400 text-sm">{msg}</span>}
+      </div>
     </div>
   );
 }
