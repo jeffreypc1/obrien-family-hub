@@ -36,6 +36,7 @@ export async function POST(request: NextRequest) {
       dueDate: dueDate || null,
       dollarAmount: dollarAmount || null,
       exemptFromCap: exemptFromCap || null,
+      fixedDueDate: body.fixedDueDate || null,
     },
   });
 
@@ -74,6 +75,9 @@ export async function PUT(request: NextRequest) {
   if (body.paidBy !== undefined) updates.paidBy = body.paidBy;
   if (body.paidNote !== undefined) updates.paidNote = body.paidNote;
   if (body.assignedTo !== undefined) updates.assignedTo = body.assignedTo;
+  if (body.metDeadline !== undefined) updates.metDeadline = body.metDeadline;
+  if (body.dollarAmount !== undefined) updates.dollarAmount = body.dollarAmount;
+  if (body.fixedDueDate !== undefined) updates.fixedDueDate = body.fixedDueDate;
   if (title !== undefined) updates.title = title;
   if (description !== undefined) updates.description = description;
   if (dueDate !== undefined) updates.dueDate = dueDate;

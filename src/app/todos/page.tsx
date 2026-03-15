@@ -24,6 +24,8 @@ interface TodoItem {
   paidBy: string | null;
   paidNote: string | null;
   exemptFromCap: number | null;
+  fixedDueDate: number | null;
+  metDeadline: number | null;
 }
 
 const COLUMNS = [
@@ -44,6 +46,7 @@ export default function TodosPage() {
   const [newAssignTo, setNewAssignTo] = useState('');
   const [newAmount, setNewAmount] = useState('');
   const [newExempt, setNewExempt] = useState(false);
+  const [newFixedDue, setNewFixedDue] = useState(false);
   const [showEarnings, setShowEarnings] = useState(false);
   const [dragItem, setDragItem] = useState<string | null>(null);
   const [minPayout, setMinPayout] = useState(20);
@@ -60,6 +63,7 @@ export default function TodosPage() {
   const [payDate, setPayDate] = useState(new Date().toISOString().split('T')[0]);
   const [payBy, setPayBy] = useState('');
   const [payNote, setPayNote] = useState('');
+  const [deadlineModal, setDeadlineModal] = useState<{ taskId: string; taskTitle: string; dueDate: string; dollarAmount: number } | null>(null);
 
   const fetchTodos = useCallback(async () => {
     if (!currentMember) return;
@@ -106,19 +110,45 @@ export default function TodosPage() {
         dueDate: newDue || null,
         dollarAmount: newAmount ? parseFloat(newAmount) : null,
         exemptFromCap: newExempt ? 1 : 0,
+        fixedDueDate: newFixedDue ? 1 : 0,
       }),
     });
-    setNewTitle(''); setNewDesc(''); setNewDue(''); setNewAssignTo(''); setNewAmount(''); setNewExempt(false);
+    setNewTitle(''); setNewDesc(''); setNewDue(''); setNewAssignTo(''); setNewAmount(''); setNewExempt(false); setNewFixedDue(false);
     setShowNew(false);
     fetchTodos();
   };
 
   const handleStatusChange = async (id: string, newStatus: string) => {
+    // Check if moving to done and has a fixed due date
+    if (newStatus === 'done') {
+      const task = todos.find((t) => t.id === id);
+      if (task?.fixedDueDate && task.dollarAmount && task.dueDate) {
+        setDeadlineModal({ taskId: id, taskTitle: task.title, dueDate: task.dueDate, dollarAmount: task.dollarAmount });
+        return; // Don't move yet — modal will handle it
+      }
+    }
     await fetch('/api/todos', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id, status: newStatus }),
     });
+    fetchTodos();
+  };
+
+  const handleDeadlineResponse = async (metDeadline: boolean) => {
+    if (!deadlineModal) return;
+    await fetch('/api/todos', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        id: deadlineModal.taskId,
+        status: 'done',
+        metDeadline: metDeadline ? 1 : 0,
+        // If didn't meet deadline, zero out the dollar amount
+        ...(metDeadline ? {} : { dollarAmount: 0 }),
+      }),
+    });
+    setDeadlineModal(null);
     fetchTodos();
   };
 
@@ -499,7 +529,7 @@ export default function TodosPage() {
                     className="bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white text-sm focus:outline-none [color-scheme:dark] w-28" />
                 </div>
                 {newAmount && parseFloat(newAmount) > 0 && (
-                  <div className="flex items-center self-end pb-1">
+                  <div className="flex items-center gap-4 self-end pb-1">
                     <label className="flex items-center gap-2 cursor-pointer" onClick={() => setNewExempt(!newExempt)}>
                       <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center text-xs transition-all ${
                         newExempt ? 'bg-amber-500 border-amber-500 text-white' : 'border-white/15'}`}>
@@ -507,6 +537,15 @@ export default function TodosPage() {
                       </div>
                       <span className="text-xs text-white/40">Exempt from cap</span>
                     </label>
+                    {newDue && (
+                      <label className="flex items-center gap-2 cursor-pointer" onClick={() => setNewFixedDue(!newFixedDue)}>
+                        <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center text-xs transition-all ${
+                          newFixedDue ? 'bg-red-500 border-red-500 text-white' : 'border-white/15'}`}>
+                          {newFixedDue && '✓'}
+                        </div>
+                        <span className="text-xs text-white/40">Fixed deadline (no pay if late)</span>
+                      </label>
+                    )}
                   </div>
                 )}
               </div>
@@ -579,7 +618,11 @@ export default function TodosPage() {
                               <span className={`text-[10px] px-2 py-0.5 rounded-full ${
                                 overdue ? 'bg-red-500/15 text-red-400' : 'bg-white/5 text-white/30'}`}>
                                 {overdue ? '⚠️' : '📅'} {formatDate(item.dueDate)}
+                                {item.fixedDueDate ? ' ⏰' : ''}
                               </span>
+                            )}
+                            {item.metDeadline === 0 && item.fixedDueDate && (
+                              <span className="text-[10px] px-2 py-0.5 rounded-full bg-red-500/15 text-red-400">❌ Late — no pay</span>
                             )}
                             {isAssignedByOther && (
                               <span className="text-[10px] px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-400">from {item.createdBy}</span>
@@ -866,6 +909,45 @@ export default function TodosPage() {
           </div>
         )}
       </div>
+
+      {/* Deadline check modal */}
+      <AnimatePresence>
+        {deadlineModal && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+            <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }}
+              className="w-full max-w-md bg-[#1a1a2e] border border-white/10 rounded-2xl p-6 space-y-5 shadow-2xl text-center">
+
+              <div className="text-5xl mb-2">⏰</div>
+              <h2 className="text-xl font-bold">Deadline Check</h2>
+              <p className="text-white/50 text-sm">&ldquo;{deadlineModal.taskTitle}&rdquo;</p>
+
+              <div className="p-4 bg-white/5 rounded-xl">
+                <p className="text-white/40 text-xs uppercase tracking-wider mb-1">Due Date</p>
+                <p className="text-lg font-bold">{new Date(deadlineModal.dueDate + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</p>
+              </div>
+
+              <p className="text-white/60 text-sm">Was this task completed by the deadline?</p>
+
+              <div className="grid grid-cols-2 gap-4">
+                <button onClick={() => handleDeadlineResponse(true)}
+                  className="py-4 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 font-bold text-lg hover:bg-emerald-500/25 transition-all">
+                  ✅ Yes
+                  <span className="block text-xs font-normal text-emerald-400/60 mt-1">Earns ${deadlineModal.dollarAmount.toFixed(2)}</span>
+                </button>
+                <button onClick={() => handleDeadlineResponse(false)}
+                  className="py-4 rounded-xl bg-red-500/15 border border-red-500/30 text-red-400 font-bold text-lg hover:bg-red-500/25 transition-all">
+                  ❌ No
+                  <span className="block text-xs font-normal text-red-400/60 mt-1">No payment</span>
+                </button>
+              </div>
+
+              <button onClick={() => setDeadlineModal(null)}
+                className="text-white/20 text-xs hover:text-white/40">Cancel</button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Payment confirmation modal */}
       <AnimatePresence>

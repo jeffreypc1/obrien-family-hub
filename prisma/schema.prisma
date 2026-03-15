@@ -288,6 +288,8 @@ model TodoItem {
   paidBy        String?
   paidNote      String?
   exemptFromCap Int?     @default(0)
+  fixedDueDate  Int?     @default(0)
+  metDeadline   Int?
   sortOrder    Int      @default(0)
   createdAt    DateTime @default(now())
 }
