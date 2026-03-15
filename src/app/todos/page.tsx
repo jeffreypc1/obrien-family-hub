@@ -43,7 +43,7 @@ export default function TodosPage() {
   const [showEarnings, setShowEarnings] = useState(false);
   const [dragItem, setDragItem] = useState<string | null>(null);
   const [minPayout, setMinPayout] = useState(20);
-  const [maxActive, setMaxActive] = useState(20);
+  const [maxActive, setMaxActive] = useState(22);
   const [allTodos, setAllTodos] = useState<TodoItem[]>([]);
   const [templates, setTemplates] = useState<Array<{ id: string; title: string; description: string | null; dollarAmount: number | null; category: string }>>([]);
   const [selectedTemplates, setSelectedTemplates] = useState<Set<string>>(new Set());
@@ -115,9 +115,13 @@ export default function TodosPage() {
 
   const handleClaimTask = async (id: string) => {
     if (!currentMember) return;
-    // Check active cap
-    if (myActiveAmount >= maxActive) {
-      alert(`You have $${myActiveAmount.toFixed(2)} in active tasks. Complete some before taking more! (Limit: $${maxActive})`);
+    const task = todos.find((t) => t.id === id);
+    const taskAmount = task?.dollarAmount || 0;
+    const isExempt = task?.exemptFromCap;
+
+    // Check if adding this task would exceed the cap (exempt tasks skip this)
+    if (!isExempt && taskAmount > 0 && myActiveAmount + taskAmount > maxActive) {
+      alert(`Adding this $${taskAmount.toFixed(2)} task would put you at $${(myActiveAmount + taskAmount).toFixed(2)}, which exceeds the $${maxActive.toFixed(2)} limit. Complete some tasks first!`);
       return;
     }
     await fetch('/api/todos', {
@@ -474,8 +478,10 @@ export default function TodosPage() {
                               col.id === 'done' ? 'line-through text-white/40' : 'text-white'}`}>
                               {item.title}
                             </h4>
-                            <button onClick={() => handleDelete(item.id)}
-                              className="text-white/10 hover:text-red-400 text-xs opacity-0 group-hover:opacity-100 transition-all flex-shrink-0">✕</button>
+                            {item.createdBy === currentMember.name && (
+                              <button onClick={() => handleDelete(item.id)}
+                                className="text-white/10 hover:text-red-400 text-xs opacity-0 group-hover:opacity-100 transition-all flex-shrink-0">✕</button>
+                            )}
                           </div>
                           {item.description && <p className="text-white/30 text-xs mt-1.5 line-clamp-2">{item.description}</p>}
                           <div className="flex items-center gap-2 mt-3 flex-wrap">
@@ -568,13 +574,15 @@ export default function TodosPage() {
                       <span className="text-[10px] text-white/15">Posted by {item.createdBy}</span>
                     </div>
                     <button onClick={() => handleClaimTask(item.id)}
-                      disabled={myActiveAmount >= maxActive}
+                      disabled={!item.exemptFromCap && (item.dollarAmount || 0) > 0 && myActiveAmount + (item.dollarAmount || 0) > maxActive}
                       className={`w-full py-3 rounded-xl text-sm font-medium transition-all ${
-                        myActiveAmount >= maxActive
+                        !item.exemptFromCap && (item.dollarAmount || 0) > 0 && myActiveAmount + (item.dollarAmount || 0) > maxActive
                           ? 'bg-white/5 text-white/20 cursor-not-allowed'
                           : 'bg-gradient-to-r from-emerald-500/20 to-teal-500/20 text-emerald-400 border border-emerald-500/20 hover:from-emerald-500/30 hover:to-teal-500/30'
                       }`}>
-                      {myActiveAmount >= maxActive ? '🔒 Complete tasks first' : '🙋 Grab This Task'}
+                      {!item.exemptFromCap && (item.dollarAmount || 0) > 0 && myActiveAmount + (item.dollarAmount || 0) > maxActive
+                        ? `🔒 Would exceed $${maxActive} limit`
+                        : `🙋 Grab This Task${item.dollarAmount ? ` ($${item.dollarAmount.toFixed(2)})` : ''}`}
                     </button>
                   </motion.div>
                 ))}
@@ -762,10 +770,10 @@ export default function TodosPage() {
                           className="text-[10px] text-white/25 hover:text-white/60 px-2 py-1 rounded bg-white/5">
                           ↩ Restore
                         </button>
-                        <button onClick={() => handleDelete(item.id)}
+                        {item.createdBy === currentMember?.name && <button onClick={() => handleDelete(item.id)}
                           className="text-[10px] text-white/15 hover:text-red-400 px-2 py-1 rounded bg-white/5">
                           Delete
-                        </button>
+                        </button>}
                       </div>
                     </div>
                   ))}
