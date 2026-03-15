@@ -21,6 +21,7 @@ const CATEGORIES: Record<string, { icon: string; color: string; label: string }>
   videos: { icon: '🎬', color: '#A78BFA', label: 'Videos' },
   articles: { icon: '📰', color: '#60A5FA', label: 'Articles' },
   activities: { icon: '🎯', color: '#2DD4BF', label: 'Things to Do' },
+  website: { icon: '🌐', color: '#6366F1', label: 'Family Website Ideas' },
   other: { icon: '💬', color: '#9CA3AF', label: 'Other' },
 };
 
