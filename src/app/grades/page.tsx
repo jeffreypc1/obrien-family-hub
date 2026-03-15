@@ -268,10 +268,10 @@ export default function GradesPage() {
                           </button>
 
                           {/* Expanded assignments */}
-                          {isExpanded && cd.assignments && (
+                          {isExpanded && cd.assignments?.length > 0 && (
                             <div className="border-t border-white/5 px-5 py-3 max-h-[400px] overflow-y-auto">
                               <div className="space-y-1">
-                                {cd.assignments.filter((a) => a.submitted || a.missing).sort((a, b) => {
+                                {(cd.assignments || []).filter((a) => a.submitted || a.missing).sort((a, b) => {
                                   if (a.missing && !b.missing) return -1;
                                   if (!a.missing && b.missing) return 1;
                                   return (b.gradedAt || '').localeCompare(a.gradedAt || '');
@@ -328,7 +328,7 @@ export default function GradesPage() {
                         const graded = detail.courses.filter((c) => c.score);
                         const sorted = [...graded].sort((a, b) => (b.score || 0) - (a.score || 0));
                         const avg = graded.reduce((s, c) => s + (c.score || 0), 0) / (graded.length || 1);
-                        const totalMissing = detail.courses.reduce((s, c) => s + ((c as CourseDetail).assignments?.filter((a) => a.missing).length || 0), 0);
+                        const totalMissing = detail.courses.reduce((s, c) => s + (((c as CourseDetail).assignments || []).filter((a) => a.missing).length), 0);
                         return [
                           { label: 'Highest', value: sorted[0]?.score?.toFixed(1) + '%', sub: cleanName(sorted[0]?.courseName || '').split(' - ')[0], color: '#22C55E' },
                           { label: 'Lowest', value: sorted[sorted.length - 1]?.score?.toFixed(1) + '%', sub: cleanName(sorted[sorted.length - 1]?.courseName || '').split(' - ')[0], color: '#EF4444' },
@@ -350,7 +350,8 @@ export default function GradesPage() {
                   // Build all assignments across all courses
                   const allAssignments = detail.courses.flatMap((c) => {
                     const cd = c as CourseDetail;
-                    return (cd.assignments || []).map((a) => ({ ...a, courseName: cleanName(c.courseName).split(' - ')[0], courseGrade: c.grade }));
+                    if (!cd.assignments) return [];
+                    return cd.assignments.map((a) => ({ ...a, courseName: cleanName(c.courseName).split(' - ')[0], courseGrade: c.grade }));
                   });
 
                   // Get unique categories
@@ -732,9 +733,9 @@ export default function GradesPage() {
 
                 {view === 'assignments' && (
                   <div className="space-y-4">
-                    {detail.courses.filter((c) => (c as CourseDetail).assignments?.length > 0).map((course) => {
+                    {detail.courses.filter((c) => (c as CourseDetail).assignments?.length).map((course) => {
                       const cd = course as CourseDetail;
-                      const missing = cd.assignments.filter((a) => a.missing);
+                      const missing = (cd.assignments || []).filter((a) => a.missing);
                       if (missing.length === 0) return null;
                       return (
                         <div key={course.courseId} className="glass rounded-xl p-4">
@@ -750,7 +751,7 @@ export default function GradesPage() {
                         </div>
                       );
                     })}
-                    {detail.courses.every((c) => !(c as CourseDetail).assignments?.some((a) => a.missing)) && (
+                    {detail.courses.every((c) => !((c as CourseDetail).assignments || []).some((a) => a.missing)) && (
                       <div className="text-center py-12 text-white/20"><div className="text-4xl mb-3">✅</div><p>No missing assignments!</p></div>
                     )}
                   </div>
