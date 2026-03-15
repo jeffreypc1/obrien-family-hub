@@ -45,6 +45,26 @@ export async function POST(request: NextRequest) {
   return NextResponse.json({ error: 'Invalid request' }, { status: 400 });
 }
 
+export async function PUT(request: NextRequest) {
+  const body = await request.json();
+  const { id, title, description, dollarAmount, category } = body;
+  if (!id) return NextResponse.json({ error: 'id required' }, { status: 400 });
+
+  const updates: string[] = [];
+  const values: unknown[] = [];
+  if (title !== undefined) { updates.push('title = ?'); values.push(title.trim()); }
+  if (description !== undefined) { updates.push('description = ?'); values.push(description?.trim() || null); }
+  if (dollarAmount !== undefined) { updates.push('dollarAmount = ?'); values.push(dollarAmount); }
+  if (category !== undefined) { updates.push('category = ?'); values.push(category); }
+
+  if (updates.length > 0) {
+    values.push(id);
+    await prisma.$executeRawUnsafe(`UPDATE GrabTaskTemplate SET ${updates.join(', ')} WHERE id = ?`, ...values);
+  }
+
+  return NextResponse.json({ success: true });
+}
+
 export async function DELETE(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const id = searchParams.get('id');

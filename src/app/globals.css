@@ -15,7 +15,19 @@ body {
   color: white;
   min-height: 100vh;
   overflow-x: hidden;
+  font-size: 16px;
 }
+
+/* Global font size control — adjust this to scale everything */
+:root {
+  --base-font-size: 16px;
+}
+
+@media (min-width: 768px) {
+  :root { --base-font-size: 17px; }
+}
+
+html { font-size: var(--base-font-size); }
 
 /* Pages with ThemedBackground override the body bg */
 .themed-page {

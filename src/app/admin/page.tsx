@@ -402,6 +402,25 @@ export default function AdminPage() {
               </button>
             </div>
 
+            {/* Font size */}
+            <div className="p-4 bg-white/[0.02] rounded-xl">
+              <h3 className="text-sm font-medium mb-2">🔤 Global Font Size</h3>
+              <p className="text-[10px] text-white/25 mb-3">Adjust the base font size for the entire site</p>
+              <div className="flex items-center gap-3">
+                {[14, 15, 16, 17, 18, 19, 20].map((size) => (
+                  <button key={size} onClick={() => {
+                    document.documentElement.style.setProperty('--base-font-size', `${size}px`);
+                    apiCall({ config: { fontSize: size } });
+                  }}
+                    className={`w-10 h-10 rounded-xl text-sm font-medium transition-all ${
+                      size === 16 ? 'ring-1 ring-white/20 bg-white/10 text-white' : 'bg-white/5 text-white/30 hover:text-white'
+                    }`}>
+                    {size}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             {/* Chore payment limits */}
             <div className="p-4 bg-white/[0.02] rounded-xl space-y-3">
               <h3 className="text-sm font-medium">💰 Chore Payment Limits</h3>
@@ -759,26 +778,52 @@ function GrabTemplatesAdmin({ currentMember }: { currentMember: string }) {
         })}
       </div>
 
-      {/* Template list with checkboxes */}
-      <div className="space-y-1 max-h-[400px] overflow-y-auto">
+      {/* Template list with checkboxes + inline edit */}
+      <div className="space-y-1 max-h-[500px] overflow-y-auto">
         {filtered.map((t) => {
           const isSelected = selected.has(t.id);
           const cat = GRAB_CATEGORIES[t.category] || GRAB_CATEGORIES.general;
           return (
-            <div key={t.id} className={`flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all ${isSelected ? 'bg-emerald-500/10 border border-emerald-500/20' : 'bg-white/[0.01] border border-transparent hover:bg-white/[0.03]'}`}
-              onClick={() => toggleSelect(t.id)}>
-              <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center text-xs transition-all ${isSelected ? 'bg-emerald-500 border-emerald-500 text-white' : 'border-white/15'}`}>
+            <div key={t.id} className={`flex items-center gap-2 p-3 rounded-xl transition-all ${isSelected ? 'bg-emerald-500/10 border border-emerald-500/20' : 'bg-white/[0.01] border border-transparent hover:bg-white/[0.03]'}`}>
+              <div onClick={() => toggleSelect(t.id)}
+                className={`w-5 h-5 rounded-md border-2 flex items-center justify-center text-xs cursor-pointer flex-shrink-0 transition-all ${isSelected ? 'bg-emerald-500 border-emerald-500 text-white' : 'border-white/15'}`}>
                 {isSelected && '✓'}
               </div>
-              <span className="text-sm">{cat.icon}</span>
-              <span className="text-sm flex-1">{t.title}</span>
-              {t.description && <span className="text-[10px] text-white/15 hidden md:block max-w-[200px] truncate">{t.description}</span>}
+              <span className="text-sm flex-shrink-0">{cat.icon}</span>
+              {/* Editable title */}
+              <input type="text" defaultValue={t.title}
+                onBlur={(e) => {
+                  if (e.target.value.trim() !== t.title) {
+                    fetch('/api/grab-templates', { method: 'PUT', headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ id: t.id, title: e.target.value.trim() }) }).then(() => fetchTemplates());
+                  }
+                }}
+                className="flex-1 bg-transparent text-sm text-white focus:bg-white/5 focus:outline-none rounded px-1 min-w-0" />
+              {/* Editable description */}
+              <input type="text" defaultValue={t.description || ''} placeholder="description..."
+                onBlur={(e) => {
+                  fetch('/api/grab-templates', { method: 'PUT', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id: t.id, description: e.target.value.trim() }) }).then(() => fetchTemplates());
+                }}
+                className="w-32 md:w-48 bg-transparent text-[10px] text-white/25 focus:bg-white/5 focus:text-white/50 focus:outline-none rounded px-1 hidden md:block" />
+              {/* Editable amount */}
               <input type="number" step="0.5" min="0"
-                value={amountOverrides[t.id] ?? t.dollarAmount ?? ''}
-                onClick={(e) => e.stopPropagation()}
-                onChange={(e) => { e.stopPropagation(); setAmountOverrides((p) => ({ ...p, [t.id]: parseFloat(e.target.value) || 0 })); }}
+                defaultValue={t.dollarAmount ?? ''}
+                onBlur={(e) => {
+                  const val = parseFloat(e.target.value) || 0;
+                  if (val !== t.dollarAmount) {
+                    fetch('/api/grab-templates', { method: 'PUT', headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ id: t.id, dollarAmount: val }) }).then(() => fetchTemplates());
+                  }
+                  setAmountOverrides((p) => ({ ...p, [t.id]: val }));
+                }}
                 placeholder="$"
-                className="w-16 bg-white/5 border border-white/10 rounded-lg px-2 py-1 text-xs text-emerald-400 text-right focus:outline-none" />
+                className="w-16 bg-white/5 border border-white/10 rounded-lg px-2 py-1 text-xs text-emerald-400 text-right focus:outline-none flex-shrink-0" />
+              {/* Delete */}
+              <button onClick={async () => {
+                await fetch(`/api/grab-templates?id=${t.id}`, { method: 'DELETE' });
+                fetchTemplates();
+              }} className="text-white/10 hover:text-red-400 text-xs flex-shrink-0 ml-1">✕</button>
             </div>
           );
         })}
