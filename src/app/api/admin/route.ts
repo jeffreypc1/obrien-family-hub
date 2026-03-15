@@ -13,13 +13,13 @@ export async function PUT(request: NextRequest) {
   const body = await request.json();
   const { pin, config, deleteMemberId, newMember, updateMember } = body;
 
-  // Check PIN against env var OR the DB-stored admin PIN
-  const configRow = await prisma.hubConfig.findUnique({ where: { id: 'singleton' } });
-  const dbPin = (configRow as Record<string, unknown>)?.adminPin as string | undefined;
-  const validPin = pin === process.env.ADMIN_PIN || pin === dbPin;
-  if (!validPin) {
-    return NextResponse.json({ error: 'Invalid PIN' }, { status: 401 });
-  }
+  // PIN check disabled for now — will re-enable when site goes live
+  // const configRow = await prisma.hubConfig.findUnique({ where: { id: 'singleton' } });
+  // const dbPin = (configRow as Record<string, unknown>)?.adminPin as string | undefined;
+  // const validPin = pin === process.env.ADMIN_PIN || pin === dbPin;
+  // if (!validPin) {
+  //   return NextResponse.json({ error: 'Invalid PIN' }, { status: 401 });
+  // }
 
   if (config && Object.keys(config).length > 0) {
     await prisma.hubConfig.upsert({

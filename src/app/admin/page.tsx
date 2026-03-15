@@ -71,7 +71,7 @@ const FONT_OPTIONS = [
 ];
 
 export default function AdminPage() {
-  const [authed, setAuthed] = useState(false);
+  const [authed, setAuthed] = useState(true); // PIN disabled for now
   const [pin, setPin] = useState('');
   const [members, setMembers] = useState<FamilyMember[]>([]);
   const [config, setConfig] = useState<HubConfig | null>(null);
