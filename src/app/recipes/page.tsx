@@ -59,6 +59,9 @@ export default function RecipesPage() {
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [activeTagFilter, setActiveTagFilter] = useState<string | null>(null);
   const [newCustomTag, setNewCustomTag] = useState('');
+  const [editingTagsFor, setEditingTagsFor] = useState<string | null>(null);
+  const [editingTagsList, setEditingTagsList] = useState<string[]>([]);
+  const [customTagInput, setCustomTagInput] = useState('');
 
   const fetchTabs = useCallback(async () => {
     const res = await fetch('/api/recipes/tabs');
@@ -314,19 +317,77 @@ export default function RecipesPage() {
                         </button>
                       ))}
                       {myLatest > 0 && <span className="text-[10px] text-white/20 ml-1">Your: {myLatest}★</span>}
-                      <button onClick={async (e) => {
+                      <button onClick={(e) => {
                         e.preventDefault();
-                        const tagNames = prompt('Enter tags (comma separated):\n\nAvailable: ' + allTags.map((t) => t.name).join(', ') + '\n\nCurrent: ' + itemTags.join(', '));
-                        if (tagNames !== null) {
-                          const tags = tagNames.split(',').map((t) => t.trim()).filter(Boolean);
-                          await fetch('/api/recipes/items', { method: 'PUT', headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ id: item.id, tagsJson: JSON.stringify(tags) }) });
-                          fetchItems();
-                        }
-                      }} className="px-2 py-1 rounded-lg bg-white/5 text-white/40 hover:text-white hover:bg-white/10 text-xs ml-auto transition-all" title="Edit tags">
-                        🏷️ Tags
+                        e.stopPropagation();
+                        setEditingTagsFor(editingTagsFor === item.id ? null : item.id);
+                        setEditingTagsList(itemTags);
+                        setCustomTagInput('');
+                      }} className="px-2 py-1 rounded-lg bg-white/5 text-white/40 hover:text-white hover:bg-white/10 text-xs ml-auto transition-all">
+                        🏷️ Tags {itemTags.length > 0 && `(${itemTags.length})`}
                       </button>
                     </div>
+
+                    {/* Tag picker dropdown */}
+                    {editingTagsFor === item.id && (
+                      <div className="mt-2 p-3 glass rounded-xl space-y-3" onClick={(e) => e.preventDefault()}>
+                        {/* Selected tags */}
+                        {editingTagsList.length > 0 && (
+                          <div className="flex gap-1 flex-wrap">
+                            {editingTagsList.map((tagName) => {
+                              const tag = allTags.find((t) => t.name === tagName);
+                              return (
+                                <span key={tagName} className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px]"
+                                  style={{ background: `${tag?.color || '#6B7280'}20`, color: tag?.color || '#6B7280' }}>
+                                  {tag?.icon || '🏷️'} {tagName}
+                                  <button onClick={() => setEditingTagsList((prev) => prev.filter((t) => t !== tagName))}
+                                    className="hover:text-red-400 ml-0.5">✕</button>
+                                </span>
+                              );
+                            })}
+                          </div>
+                        )}
+
+                        {/* Tag grid */}
+                        <div className="flex gap-1 flex-wrap max-h-[150px] overflow-y-auto">
+                          {allTags.filter((t) => !editingTagsList.includes(t.name)).map((tag) => (
+                            <button key={tag.id}
+                              onClick={() => setEditingTagsList((prev) => [...prev, tag.name])}
+                              className="px-2 py-1 rounded-lg text-[10px] bg-white/5 text-white/30 hover:text-white/60 hover:bg-white/10 transition-all">
+                              {tag.icon} {tag.name}
+                            </button>
+                          ))}
+                        </div>
+
+                        {/* Custom tag input */}
+                        <div className="flex gap-2">
+                          <input type="text" value={customTagInput} onChange={(e) => setCustomTagInput(e.target.value)}
+                            onKeyDown={async (e) => {
+                              if (e.key === 'Enter' && customTagInput.trim()) {
+                                await fetch('/api/recipe-tags', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({ name: customTagInput.trim() }) });
+                                setEditingTagsList((prev) => [...prev, customTagInput.trim()]);
+                                setCustomTagInput('');
+                                fetchTags();
+                              }
+                            }}
+                            placeholder="Type new tag + Enter"
+                            className="flex-1 bg-white/5 border border-white/10 rounded-lg px-2 py-1 text-[11px] text-white placeholder-white/20 focus:outline-none" />
+                        </div>
+
+                        {/* Save / Cancel */}
+                        <div className="flex gap-2">
+                          <button onClick={async () => {
+                            await fetch('/api/recipes/items', { method: 'PUT', headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ id: item.id, tagsJson: JSON.stringify(editingTagsList) }) });
+                            setEditingTagsFor(null);
+                            fetchItems();
+                          }} className="px-3 py-1.5 rounded-lg bg-orange-500/15 text-orange-400 text-xs font-medium">Save Tags</button>
+                          <button onClick={() => setEditingTagsFor(null)}
+                            className="px-3 py-1.5 rounded-lg bg-white/5 text-white/30 text-xs">Cancel</button>
+                        </div>
+                      </div>
+                    )}
                   </motion.div>
                 );
               })}
