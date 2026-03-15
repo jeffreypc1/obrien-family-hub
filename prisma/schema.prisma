@@ -27,12 +27,24 @@ model HubApp {
 }
 
 model HubConfig {
-  id             String   @id @default("singleton")
-  heroTitle      String   @default("O'Brien")
-  heroSubtitle   String   @default("Family Hub")
-  heroCopy       String   @default("Our corner of the internet. Apps, games, and things we built — just for us.")
-  heroIcon       String   @default("🏠")
-  updatedAt      DateTime @updatedAt
+  id                    String   @id @default("singleton")
+  heroTitle             String   @default("O'Brien")
+  heroSubtitle          String   @default("Family Hub")
+  heroCopy              String   @default("Our corner of the internet.")
+  heroIcon              String   @default("🏠")
+  fontPrimary           String?
+  fontSize              Int?
+  requirePin            Int?     @default(0)
+  adminPin              String?
+  appVisibilityJson     String?
+  appOverridesJson      String?
+  roomMappingsJson      String?
+  locationsJson         String?
+  minPayout             Float?   @default(20)
+  maxActiveAmount       Float?   @default(22)
+  gradeMultipliersJson  String?
+  missingPenaltiesJson  String?
+  updatedAt             DateTime @updatedAt
 }
 
 // ==================== GERMAN LEARNING ====================

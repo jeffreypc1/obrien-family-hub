@@ -523,21 +523,44 @@ export default function TodosPage() {
 
             {/* Grade bonus card */}
             {gradeBonus && (
-              <div className="p-3 bg-white/[0.03] rounded-xl mb-4 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <span className="text-2xl">🎓</span>
-                  <div>
-                    <span className="text-sm font-bold" style={{ color: gradeBonus.multiplier >= 1.5 ? '#22C55E' : gradeBonus.multiplier >= 1 ? '#60A5FA' : '#EF4444' }}>
-                      {gradeBonus.label} — {gradeBonus.multiplier}x multiplier
+              <div className="p-4 bg-white/[0.03] rounded-xl mb-4">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-3">
+                    <span className="text-2xl">🎓</span>
+                    <div>
+                      <span className="text-sm font-bold" style={{ color: gradeBonus.multiplier >= 1.5 ? '#22C55E' : gradeBonus.multiplier >= 1 ? '#60A5FA' : '#EF4444' }}>
+                        {gradeBonus.label}
+                      </span>
+                      <span className="text-sm text-white/25 block">Current GPA: {gradeBonus.gpa.toFixed(2)}</span>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-sm text-white/30">Adjusted payout</span>
+                    <span className="text-2xl font-bold text-emerald-400 block">
+                      ${(myPendingPayout * gradeBonus.multiplier + gradeBonus.missingAdj).toFixed(2)}
                     </span>
-                    <span className="text-sm text-white/25 block">GPA: {gradeBonus.gpa.toFixed(2)}</span>
                   </div>
                 </div>
-                <div className="text-right">
-                  <span className="text-sm text-white/30">Adjusted payout:</span>
-                  <span className="text-lg font-bold text-emerald-400 block">
-                    ${(myPendingPayout * gradeBonus.multiplier + gradeBonus.missingAdj).toFixed(2)}
-                  </span>
+                {/* Breakdown */}
+                <div className="text-sm space-y-1 pt-3 border-t border-white/5">
+                  <div className="flex justify-between text-white/40">
+                    <span>Base earnings</span>
+                    <span>${myPendingPayout.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between" style={{ color: gradeBonus.multiplier >= 1 ? '#22C55E' : '#EF4444' }}>
+                    <span>GPA bonus ({gradeBonus.multiplier}x)</span>
+                    <span>{gradeBonus.multiplier >= 1 ? '+' : ''}${((gradeBonus.multiplier - 1) * myPendingPayout).toFixed(2)}</span>
+                  </div>
+                  {gradeBonus.missingAdj !== 0 && (
+                    <div className="flex justify-between" style={{ color: gradeBonus.missingAdj > 0 ? '#22C55E' : '#EF4444' }}>
+                      <span>{gradeBonus.missingLabel} ({gradeBonus.missingCount} missing)</span>
+                      <span>{gradeBonus.missingAdj > 0 ? '+' : ''}${gradeBonus.missingAdj.toFixed(2)}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between font-bold text-white pt-1 border-t border-white/5">
+                    <span>Total</span>
+                    <span className="text-emerald-400">${(myPendingPayout * gradeBonus.multiplier + gradeBonus.missingAdj).toFixed(2)}</span>
+                  </div>
                 </div>
               </div>
             )}
@@ -1251,12 +1274,26 @@ export default function TodosPage() {
                 <div className="text-4xl mb-2">💸</div>
                 <h2 className="text-xl font-bold">Confirm Payment</h2>
                 <p className="text-3xl font-bold text-emerald-400 mt-2">${paymentModal.amount.toFixed(2)}</p>
-                {gradeBonus && gradeBonus.multiplier !== 1 && (
-                  <div className="mt-2 p-2 bg-white/5 rounded-xl">
-                    <p className="text-sm text-white/40">🎓 Grade bonus: {gradeBonus.label} ({gradeBonus.multiplier}x)</p>
-                    <p className="text-lg font-bold text-emerald-400">
-                      Adjusted: ${(paymentModal.amount * gradeBonus.multiplier).toFixed(2)}
-                    </p>
+                {gradeBonus && (
+                  <div className="mt-3 p-3 bg-white/5 rounded-xl text-sm space-y-1">
+                    <div className="flex justify-between text-white/40">
+                      <span>Base task amount</span>
+                      <span>${paymentModal.amount.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between" style={{ color: gradeBonus.multiplier >= 1 ? '#22C55E' : '#EF4444' }}>
+                      <span>🎓 {gradeBonus.label} ({gradeBonus.gpa.toFixed(2)} GPA, {gradeBonus.multiplier}x)</span>
+                      <span>{gradeBonus.multiplier >= 1 ? '+' : ''}${((gradeBonus.multiplier - 1) * paymentModal.amount).toFixed(2)}</span>
+                    </div>
+                    {gradeBonus.missingAdj !== 0 && (
+                      <div className="flex justify-between" style={{ color: gradeBonus.missingAdj > 0 ? '#22C55E' : '#EF4444' }}>
+                        <span>📝 {gradeBonus.missingLabel}</span>
+                        <span>{gradeBonus.missingAdj > 0 ? '+' : ''}${gradeBonus.missingAdj.toFixed(2)}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between font-bold text-emerald-400 pt-1 border-t border-white/10">
+                      <span>Adjusted total</span>
+                      <span>${(paymentModal.amount * gradeBonus.multiplier + gradeBonus.missingAdj).toFixed(2)}</span>
+                    </div>
                   </div>
                 )}
               </div>
