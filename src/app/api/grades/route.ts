@@ -1,9 +1,12 @@
 import { NextResponse } from 'next/server';
 
-export const maxDuration = 30; // Allow up to 30 seconds for Canvas API calls
+export const maxDuration = 30;
 
 const CANVAS_TOKEN = process.env.CANVAS_API_TOKEN;
 const CANVAS_BASE = process.env.CANVAS_BASE_URL || 'https://acalanes.instructure.com/api/v1';
+
+// Students to exclude
+const EXCLUDED_STUDENTS = ['Corinna'];
 
 async function canvasFetch(path: string) {
   const controller = new AbortController();
@@ -15,48 +18,48 @@ async function canvasFetch(path: string) {
       cache: 'no-store',
     });
     clearTimeout(timeout);
-    if (!res.ok) throw new Error(`Canvas API ${res.status}`);
+    if (!res.ok) return null;
     return res.json();
-  } catch (e) {
+  } catch {
     clearTimeout(timeout);
-    throw e;
+    return null;
   }
 }
 
 interface Student { id: number; name: string; }
 interface Enrollment {
-  course_id: number;
-  type: string;
+  course_id: number; type: string;
   grades: { current_grade: string | null; current_score: number | null };
 }
 interface Course { id: number; name: string; }
-interface Assignment {
-  id: number; name: string; due_at: string | null; points_possible: number;
-  submission: { score: number | null; submitted_at: string | null; workflow_state: string; late: boolean; missing: boolean };
-}
 
-export async function GET() {
+export async function GET(request: Request) {
   if (!CANVAS_TOKEN) {
     return NextResponse.json({ error: 'Canvas API token not configured' }, { status: 500 });
   }
 
-  try {
-    // Get observed students
-    const students: Student[] = await canvasFetch('/users/self/observees');
+  const url = new URL(request.url);
+  const studentId = url.searchParams.get('studentId');
+  const detail = url.searchParams.get('detail') === '1';
 
-    // Get all courses
-    const courses: Course[] = await canvasFetch('/courses?per_page=100&enrollment_state=active');
+  try {
+    const students: Student[] = await canvasFetch('/users/self/observees') || [];
+    const filteredStudents = students.filter((s) => !EXCLUDED_STUDENTS.some((ex) => s.name.includes(ex)));
+
+    const courses: Course[] = await canvasFetch('/courses?per_page=100&enrollment_state=active') || [];
     const courseMap: Record<number, string> = {};
     courses.forEach((c) => { courseMap[c.id] = c.name; });
 
-    // Get data for each student
-    const studentData = await Promise.all(students.map(async (student) => {
-      // Get enrollments with grades
-      const enrollments: Enrollment[] = await canvasFetch(
-        `/users/${student.id}/enrollments?per_page=50&include[]=current_grading_period_scores&state[]=active`
-      );
+    // If requesting detail for a specific student
+    if (studentId && detail) {
+      const sid = Number(studentId);
+      const student = filteredStudents.find((s) => s.id === sid);
+      if (!student) return NextResponse.json({ error: 'Student not found' }, { status: 404 });
 
-      // Filter to current year courses only
+      const enrollments: Enrollment[] = await canvasFetch(
+        `/users/${sid}/enrollments?per_page=50&include[]=current_grading_period_scores&state[]=active&state[]=completed`
+      ) || [];
+
       const currentCourses = enrollments
         .filter((e) => e.type === 'StudentEnrollment' && courseMap[e.course_id]?.startsWith('25-26'))
         .map((e) => ({
@@ -65,62 +68,73 @@ export async function GET() {
           grade: e.grades?.current_grade || null,
           score: e.grades?.current_score || null,
         }))
-        .sort((a, b) => (a.courseName || '').localeCompare(b.courseName || ''));
+        .sort((a, b) => a.courseName.localeCompare(b.courseName));
 
-      // Get missing/upcoming assignments for current courses
-      let missingAssignments: Array<{ courseName: string; name: string; dueAt: string | null; pointsPossible: number }> = [];
-      let upcomingAssignments: Array<{ courseName: string; name: string; dueAt: string; pointsPossible: number }> = [];
+      // Get submissions for each course
+      const courseDetails = await Promise.all(currentCourses.filter((c) => c.grade).slice(0, 8).map(async (course) => {
+        const submissions = await canvasFetch(
+          `/courses/${course.courseId}/students/submissions?student_ids[]=${sid}&per_page=50&include[]=assignment&order_by=graded_at`
+        ) || [];
 
-      for (const course of currentCourses.filter((c) => c.grade).slice(0, 6)) { // Limit API calls
-        try {
-          const assignments: Assignment[] = await canvasFetch(
-            `/courses/${course.courseId}/assignments?per_page=50&include[]=submission&order_by=due_at&bucket=upcoming`
-          );
+        const assignments = submissions.map((s: Record<string, unknown>) => {
+          const a = s.assignment as Record<string, unknown> || {};
+          return {
+            name: a.name as string || '?',
+            score: s.score as number | null,
+            pointsPossible: a.points_possible as number || 0,
+            grade: s.grade as string | null,
+            late: s.late as boolean || false,
+            missing: s.missing as boolean || false,
+            submitted: s.workflow_state === 'graded' || s.workflow_state === 'submitted',
+            dueAt: a.due_at as string | null,
+            gradedAt: s.graded_at as string | null,
+          };
+        });
 
-          for (const a of assignments) {
-            if (a.submission?.missing) {
-              missingAssignments.push({
-                courseName: course.courseName.replace('25-26 ', ''),
-                name: a.name,
-                dueAt: a.due_at,
-                pointsPossible: a.points_possible,
-              });
-            }
-            if (a.due_at && new Date(a.due_at) > new Date() && !a.submission?.submitted_at) {
-              upcomingAssignments.push({
-                courseName: course.courseName.replace('25-26 ', ''),
-                name: a.name,
-                dueAt: a.due_at,
-                pointsPossible: a.points_possible,
-              });
-            }
-          }
-        } catch {}
-      }
+        return { ...course, assignments };
+      }));
 
-      // Sort upcoming by due date
-      upcomingAssignments.sort((a, b) => new Date(a.dueAt).getTime() - new Date(b.dueAt).getTime());
-      upcomingAssignments = upcomingAssignments.slice(0, 15);
-      missingAssignments = missingAssignments.slice(0, 10);
+      // Past semesters
+      const pastCourses = enrollments
+        .filter((e) => e.type === 'StudentEnrollment' && !courseMap[e.course_id]?.startsWith('25-26') && courseMap[e.course_id])
+        .map((e) => ({
+          courseId: e.course_id,
+          courseName: courseMap[e.course_id] || `Course ${e.course_id}`,
+          grade: e.grades?.current_grade || null,
+          score: e.grades?.current_score || null,
+        }))
+        .filter((c) => c.grade)
+        .sort((a, b) => a.courseName.localeCompare(b.courseName));
 
-      // Calculate GPA approximation
+      return NextResponse.json({
+        student, courses: courseDetails, pastCourses, lastUpdated: new Date().toISOString(),
+      });
+    }
+
+    // Overview for all students
+    const studentData = await Promise.all(filteredStudents.map(async (student) => {
+      const enrollments: Enrollment[] = await canvasFetch(
+        `/users/${student.id}/enrollments?per_page=50&state[]=active`
+      ) || [];
+
+      const currentCourses = enrollments
+        .filter((e) => e.type === 'StudentEnrollment' && courseMap[e.course_id]?.startsWith('25-26'))
+        .map((e) => ({
+          courseId: e.course_id,
+          courseName: courseMap[e.course_id] || `Course ${e.course_id}`,
+          grade: e.grades?.current_grade || null,
+          score: e.grades?.current_score || null,
+        }));
+
       const gradePoints: Record<string, number> = {
         'A+': 4.3, 'A': 4.0, 'A-': 3.7, 'B+': 3.3, 'B': 3.0, 'B-': 2.7,
         'C+': 2.3, 'C': 2.0, 'C-': 1.7, 'D+': 1.3, 'D': 1.0, 'D-': 0.7, 'F': 0.0,
       };
       const gradedCourses = currentCourses.filter((c) => c.grade && gradePoints[c.grade] !== undefined);
       const gpa = gradedCourses.length > 0
-        ? gradedCourses.reduce((s, c) => s + (gradePoints[c.grade!] || 0), 0) / gradedCourses.length
-        : null;
+        ? gradedCourses.reduce((s, c) => s + (gradePoints[c.grade!] || 0), 0) / gradedCourses.length : null;
 
-      return {
-        id: student.id,
-        name: student.name,
-        courses: currentCourses,
-        missingAssignments,
-        upcomingAssignments,
-        gpa,
-      };
+      return { id: student.id, name: student.name, courses: currentCourses, gpa };
     }));
 
     return NextResponse.json({ students: studentData, lastUpdated: new Date().toISOString() });
