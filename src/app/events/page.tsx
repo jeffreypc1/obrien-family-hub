@@ -53,6 +53,7 @@ export default function EventsPage() {
   const [newCity, setNewCity] = useState('');
   const [fetching, setFetching] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [dayPhotos, setDayPhotos] = useState<Array<{ id: string; imageUrl: string; caption: string | null; uploadedBy: string }>>([]);
 
   // Current month view
   const now = new Date();
@@ -136,6 +137,20 @@ export default function EventsPage() {
     await fetch(`/api/local-events?id=${id}`, { method: 'DELETE' });
     if (activeCity) fetchLocalEvents(activeCity);
   };
+
+  // Fetch photos for selected day
+  useEffect(() => {
+    if (selectedDate) {
+      fetch('/api/photos').then((r) => r.json()).then((photos) => {
+        const dayP = photos.filter((p: { dateTaken: string | null; createdAt: string }) =>
+          (p.dateTaken || p.createdAt.split('T')[0]) === selectedDate
+        );
+        setDayPhotos(dayP);
+      });
+    } else {
+      setDayPhotos([]);
+    }
+  }, [selectedDate]);
 
   const addToCalendar = (event: { title: string; date?: string | null; description?: string | null }) => {
     const title = encodeURIComponent(event.title);
@@ -268,135 +283,161 @@ export default function EventsPage() {
           )}
         </AnimatePresence>
 
-        {/* ====== CALENDAR GRID ====== */}
+        {/* ====== CALENDAR ====== */}
         {tab === 'calendar' && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Month grid */}
-            <div className="lg:col-span-2">
-              <div className="glass rounded-2xl overflow-hidden">
-                {/* Month header */}
-                <div className="flex items-center justify-between px-6 py-4 border-b border-white/5">
-                  <button onClick={prevMonth} className="w-9 h-9 rounded-xl bg-white/5 hover:bg-white/10 flex items-center justify-center text-white/50 hover:text-white transition-all">
-                    ←
-                  </button>
-                  <div className="text-center">
-                    <h2 className="text-xl font-bold">{MONTH_NAMES[viewMonth]} {viewYear}</h2>
-                    {(viewMonth !== now.getMonth() || viewYear !== now.getFullYear()) && (
-                      <button onClick={goToToday} className="text-[10px] text-violet-400 hover:text-violet-300 mt-0.5">
-                        Go to today
-                      </button>
-                    )}
-                  </div>
-                  <button onClick={nextMonth} className="w-9 h-9 rounded-xl bg-white/5 hover:bg-white/10 flex items-center justify-center text-white/50 hover:text-white transition-all">
-                    →
-                  </button>
+          <div className="space-y-6">
+            {/* Month grid — full width */}
+            <div className="glass rounded-2xl overflow-hidden">
+              {/* Month header */}
+              <div className="flex items-center justify-between px-6 py-5 border-b border-white/5">
+                <button onClick={prevMonth} className="w-10 h-10 rounded-xl bg-white/5 hover:bg-white/10 flex items-center justify-center text-white/50 hover:text-white transition-all text-lg">←</button>
+                <div className="text-center">
+                  <h2 className="text-2xl font-bold">{MONTH_NAMES[viewMonth]} {viewYear}</h2>
+                  {(viewMonth !== now.getMonth() || viewYear !== now.getFullYear()) && (
+                    <button onClick={goToToday} className="text-xs text-violet-400 hover:text-violet-300 mt-1">Go to today</button>
+                  )}
                 </div>
+                <button onClick={nextMonth} className="w-10 h-10 rounded-xl bg-white/5 hover:bg-white/10 flex items-center justify-center text-white/50 hover:text-white transition-all text-lg">→</button>
+              </div>
 
-                {/* Day names header */}
-                <div className="grid grid-cols-7 border-b border-white/5">
-                  {DAY_NAMES.map((d) => (
-                    <div key={d} className="text-center py-2 text-[11px] text-white/25 font-medium uppercase tracking-wider">
-                      {d}
-                    </div>
-                  ))}
-                </div>
+              {/* Day names */}
+              <div className="grid grid-cols-7 border-b border-white/5">
+                {DAY_NAMES.map((d) => (
+                  <div key={d} className="text-center py-3 text-xs text-white/30 font-medium uppercase tracking-wider">{d}</div>
+                ))}
+              </div>
 
-                {/* Day cells */}
-                <div className="grid grid-cols-7">
-                  {/* Empty cells before first day */}
-                  {Array.from({ length: firstDayOfMonth }).map((_, i) => (
-                    <div key={`empty-${i}`} className="aspect-square border-b border-r border-white/[0.03]" />
-                  ))}
+              {/* Day cells — taller for more content */}
+              <div className="grid grid-cols-7">
+                {Array.from({ length: firstDayOfMonth }).map((_, i) => (
+                  <div key={`empty-${i}`} className="min-h-[90px] md:min-h-[110px] border-b border-r border-white/[0.03]" />
+                ))}
 
-                  {/* Day cells */}
-                  {Array.from({ length: daysInMonth }).map((_, i) => {
-                    const day = i + 1;
-                    const dateStr = `${viewYear}-${String(viewMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-                    const dayEvents = getEventsForDate(dateStr);
-                    const isToday = dateStr === today;
-                    const isSelected = dateStr === selectedDate;
-                    const isWeekend = (firstDayOfMonth + i) % 7 === 0 || (firstDayOfMonth + i) % 7 === 6;
+                {Array.from({ length: daysInMonth }).map((_, i) => {
+                  const day = i + 1;
+                  const dateStr = `${viewYear}-${String(viewMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                  const dayEvents = getEventsForDate(dateStr);
+                  const isToday = dateStr === today;
+                  const isSelected = dateStr === selectedDate;
+                  const isWeekend = (firstDayOfMonth + i) % 7 === 0 || (firstDayOfMonth + i) % 7 === 6;
 
-                    return (
-                      <button key={day}
-                        onClick={() => setSelectedDate(isSelected ? null : dateStr)}
-                        className={`aspect-square border-b border-r border-white/[0.03] p-1 flex flex-col items-center transition-all relative ${
-                          isSelected ? 'bg-violet-500/15' : isToday ? 'bg-white/[0.04]' : 'hover:bg-white/[0.03]'
-                        }`}>
-                        <span className={`text-sm font-medium w-7 h-7 rounded-full flex items-center justify-center ${
-                          isToday ? 'bg-violet-500 text-white' : isWeekend ? 'text-white/30' : 'text-white/60'
-                        }`}>
-                          {day}
-                        </span>
-                        {/* Event dots */}
-                        {dayEvents.length > 0 && (
-                          <div className="flex gap-0.5 mt-0.5 flex-wrap justify-center">
-                            {dayEvents.slice(0, 3).map((evt, j) => (
-                              <span key={j} className="text-[10px] leading-none">{evt.emoji}</span>
-                            ))}
-                          </div>
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
+                  return (
+                    <button key={day}
+                      onClick={() => setSelectedDate(isSelected ? null : dateStr)}
+                      className={`min-h-[90px] md:min-h-[110px] border-b border-r border-white/[0.03] p-2 flex flex-col items-start text-left transition-all ${
+                        isSelected ? 'bg-violet-500/15 ring-1 ring-violet-500/30 ring-inset' : isToday ? 'bg-white/[0.04]' : 'hover:bg-white/[0.03]'
+                      }`}>
+                      <span className={`text-sm font-bold w-7 h-7 rounded-full flex items-center justify-center mb-1 ${
+                        isToday ? 'bg-violet-500 text-white' : isWeekend ? 'text-white/25' : 'text-white/50'
+                      }`}>{day}</span>
+                      {dayEvents.length > 0 && (
+                        <div className="space-y-0.5 w-full">
+                          {dayEvents.slice(0, 3).map((evt, j) => (
+                            <div key={j} className="text-[10px] leading-tight truncate w-full px-1 py-0.5 rounded bg-violet-500/10 text-white/50">
+                              {evt.emoji} {evt.title.length > 12 ? evt.title.slice(0, 12) + '…' : evt.title}
+                            </div>
+                          ))}
+                          {dayEvents.length > 3 && <span className="text-[9px] text-white/20">+{dayEvents.length - 3} more</span>}
+                        </div>
+                      )}
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
-            {/* Sidebar: selected date details or upcoming */}
-            <div className="space-y-4">
-              {selectedDate ? (
-                <div className="glass rounded-2xl p-5">
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="font-bold text-sm">
-                      {new Date(selectedDate + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
-                    </h3>
-                    <button onClick={() => setSelectedDate(null)} className="text-white/20 hover:text-white/50 text-xs">✕</button>
-                  </div>
-                  {selectedDateEvents.length > 0 ? (
-                    <div className="space-y-3">
-                      {selectedDateEvents.map((evt) => (
-                        <div key={evt.id} className="flex items-start gap-3 group">
-                          <span className="text-xl">{evt.emoji}</span>
-                          <div className="flex-1 min-w-0">
-                            <h4 className="text-sm font-medium">{evt.title}</h4>
-                            {(evt.startTime || evt.endTime) && (
-                              <p className="text-xs text-violet-400/60 mt-0.5">
-                                🕐 {evt.startTime}{evt.endTime ? ` – ${evt.endTime}` : ''}
-                              </p>
-                            )}
-                            {evt.description && <p className="text-white/30 text-xs mt-0.5">{evt.description}</p>}
-                            {evt.recurring && <span className="text-[10px] text-violet-400/50">🔁 {evt.recurring}</span>}
-                          </div>
-                          <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <button onClick={() => {
-                              setEditingEvent(evt.id); setNewTitle(evt.title); setNewDate(evt.date);
-                              setNewEmoji(evt.emoji); setNewDesc(evt.description || '');
-                              setNewRecurring(evt.recurring || '');
-                              setNewStartTime(evt.startTime || ''); setNewEndTime(evt.endTime || '');
-                              setShowAdd(true);
-                            }} className="text-[9px] text-white/25 hover:text-white/50 px-1.5 py-0.5 rounded bg-white/5">✏️</button>
-                            <button onClick={() => addToCalendar(evt)} className="text-[9px] text-white/25 hover:text-white/50 px-1.5 py-0.5 rounded bg-white/5">📅</button>
-                            <button onClick={() => handleDeleteEvent(evt.id)} className="text-[9px] text-white/15 hover:text-red-400 px-1.5 py-0.5 rounded bg-white/5">✕</button>
-                          </div>
-                        </div>
-                      ))}
+            {/* Expanded day detail — slides in below calendar when a day is selected */}
+            <AnimatePresence>
+              {selectedDate && (
+                <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}>
+                  <div className="glass rounded-2xl p-6">
+                    <div className="flex items-center justify-between mb-6">
+                      <h2 className="text-xl font-bold">
+                        {new Date(selectedDate + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
+                      </h2>
+                      <button onClick={() => setSelectedDate(null)} className="text-white/30 hover:text-white text-sm">✕ Close</button>
                     </div>
-                  ) : (
-                    <p className="text-white/20 text-sm">No events on this day.</p>
-                  )}
-                  <button onClick={() => { setNewDate(selectedDate); setShowAdd(true); }}
-                    className="w-full mt-4 py-2 rounded-xl border border-dashed border-white/10 text-white/25 hover:text-white/50 text-xs transition-colors">
-                    + Add event on this day
-                  </button>
-                </div>
-              ) : (
-                /* Upcoming events list */
-                <div className="glass rounded-2xl p-5">
-                  <h3 className="font-bold text-sm text-white/50 mb-4">Upcoming</h3>
-                  {events.filter((e) => e.date >= today).sort((a, b) => a.date.localeCompare(b.date)).slice(0, 8).map((evt) => (
-                    <div key={evt.id} className="flex items-center gap-3 py-2 group">
-                      <span className="text-lg">{evt.emoji}</span>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                      {/* Events column */}
+                      <div>
+                        <h3 className="text-sm font-medium text-white/40 uppercase tracking-wider mb-4">Events</h3>
+                        {selectedDateEvents.length > 0 ? (
+                          <div className="space-y-3">
+                            {selectedDateEvents.map((evt) => (
+                              <div key={evt.id} className="flex items-start gap-3 p-3 bg-white/[0.02] rounded-xl group hover:bg-white/[0.04] transition-colors">
+                                <span className="text-2xl">{evt.emoji}</span>
+                                <div className="flex-1 min-w-0">
+                                  <h4 className="text-sm font-medium">{evt.title}</h4>
+                                  {(evt.startTime || evt.endTime) && (
+                                    <p className="text-xs text-violet-400/70 mt-0.5">🕐 {evt.startTime}{evt.endTime ? ` – ${evt.endTime}` : ''}</p>
+                                  )}
+                                  {evt.description && <p className="text-white/30 text-xs mt-1">{evt.description}</p>}
+                                  {evt.recurring && <span className="text-[10px] text-violet-400/40">🔁 {evt.recurring}</span>}
+                                </div>
+                                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                  <button onClick={() => {
+                                    setEditingEvent(evt.id); setNewTitle(evt.title); setNewDate(evt.date);
+                                    setNewEmoji(evt.emoji); setNewDesc(evt.description || '');
+                                    setNewRecurring(evt.recurring || '');
+                                    setNewStartTime(evt.startTime || ''); setNewEndTime(evt.endTime || '');
+                                    setShowAdd(true);
+                                  }} className="text-[10px] text-white/25 hover:text-white/50 px-2 py-1 rounded bg-white/5">✏️ Edit</button>
+                                  <button onClick={() => addToCalendar(evt)} className="text-[10px] text-white/25 hover:text-white/50 px-2 py-1 rounded bg-white/5">📅</button>
+                                  <button onClick={() => handleDeleteEvent(evt.id)} className="text-[10px] text-white/15 hover:text-red-400 px-2 py-1 rounded bg-white/5">✕</button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-white/20 text-sm py-4">No events on this day.</p>
+                        )}
+                        <button onClick={() => { setNewDate(selectedDate); setShowAdd(true); }}
+                          className="w-full mt-4 py-3 rounded-xl border border-dashed border-white/10 text-white/30 hover:text-white/50 text-sm transition-colors">
+                          + Add event on this day
+                        </button>
+                      </div>
+
+                      {/* Photos column */}
+                      <div>
+                        <h3 className="text-sm font-medium text-white/40 uppercase tracking-wider mb-4">
+                          📸 Photos {dayPhotos.length > 0 && `(${dayPhotos.length})`}
+                        </h3>
+                        {dayPhotos.length > 0 ? (
+                          <div className="grid grid-cols-3 gap-2">
+                            {dayPhotos.map((photo) => (
+                              <div key={photo.id} className="aspect-square rounded-xl overflow-hidden group relative">
+                                <img src={photo.imageUrl} alt={photo.caption || ''} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                                <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-2">
+                                  <div>
+                                    {photo.caption && <p className="text-white text-[10px] line-clamp-1">{photo.caption}</p>}
+                                    <p className="text-white/50 text-[9px]">{photo.uploadedBy}</p>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-white/20 text-sm py-4">No photos from this day.</p>
+                        )}
+                        <Link href="/photos" className="block w-full mt-4 py-3 rounded-xl border border-dashed border-white/10 text-white/30 hover:text-white/50 text-sm transition-colors text-center">
+                          📸 Go to Photos
+                        </Link>
+                      </div>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Upcoming sidebar — only when no day selected */}
+            {!selectedDate && events.filter((e) => e.date >= today).length > 0 && (
+              <div className="glass rounded-2xl p-5">
+                <h3 className="font-bold text-sm text-white/50 mb-4">Upcoming Events</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {events.filter((e) => e.date >= today).sort((a, b) => a.date.localeCompare(b.date)).slice(0, 9).map((evt) => (
+                    <div key={evt.id} className="flex items-center gap-3 p-3 bg-white/[0.02] rounded-xl">
+                      <span className="text-xl">{evt.emoji}</span>
                       <div className="flex-1 min-w-0">
                         <h4 className="text-xs font-medium truncate">{evt.title}</h4>
                         <span className="text-[10px] text-violet-400/60">{daysUntil(evt.date)}</span>
@@ -404,12 +445,9 @@ export default function EventsPage() {
                       <span className="text-[10px] text-white/15">{new Date(evt.date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
                     </div>
                   ))}
-                  {events.filter((e) => e.date >= today).length === 0 && (
-                    <p className="text-white/15 text-xs">No upcoming events</p>
-                  )}
                 </div>
-              )}
-            </div>
+              </div>
+            )}
           </div>
         )}
 
