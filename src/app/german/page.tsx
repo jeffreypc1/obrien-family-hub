@@ -79,12 +79,16 @@ export default function GermanPage() {
           <Link href="/" className="text-white/40 hover:text-white/80 transition-colors text-sm">
             ← Back to Hub
           </Link>
-          <Link
-            href="/german/vocab"
-            className="px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-sm text-white/60 hover:text-white hover:bg-white/10 transition-all"
-          >
-            📚 My Vocabulary
-          </Link>
+          <div className="flex gap-2">
+            <Link href="/german/vocab"
+              className="px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-sm text-white/60 hover:text-white hover:bg-white/10 transition-all">
+              📚 My Vocabulary
+            </Link>
+            <Link href="/german/vocab?mode=flashcards"
+              className="px-4 py-2 rounded-xl bg-yellow-500/10 border border-yellow-500/20 text-sm text-yellow-400/80 hover:text-yellow-400 transition-all">
+              🃏 Flash Cards
+            </Link>
+          </div>
         </div>
       </div>
 

@@ -112,4 +112,16 @@ export const FAMILY_APPS: FamilyApp[] = [
     accentColor: '#F43F5E',
     status: 'live',
   },
+  {
+    id: 'wishlist',
+    name: 'Wish List',
+    tagline: 'Wish. Share. Surprise.',
+    description: 'Birthday lists, holiday wishes, and dream items. Secretly claim gifts for each other.',
+    url: '/wishlist',
+    icon: '🎁',
+    gradient: 'from-pink-500 via-rose-500 to-red-500',
+    glowClass: 'glow-pink',
+    accentColor: '#EC4899',
+    status: 'live',
+  },
 ];
