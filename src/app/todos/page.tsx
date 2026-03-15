@@ -31,7 +31,7 @@ const COLUMNS = [
 export default function TodosPage() {
   const { currentMember, members, setShowPicker } = useFamilyMember();
   const [todos, setTodos] = useState<TodoItem[]>([]);
-  const [tab, setTab] = useState<'mine' | 'grab' | 'assigned' | 'archived'>('mine');
+  const [tab, setTab] = useState<'mine' | 'grab' | 'assigned' | 'manage' | 'archived'>('mine');
   const [showNew, setShowNew] = useState(false);
   const [newTitle, setNewTitle] = useState('');
   const [newDesc, setNewDesc] = useState('');
@@ -43,6 +43,11 @@ export default function TodosPage() {
   const [minPayout, setMinPayout] = useState(20);
   const [maxActive, setMaxActive] = useState(20);
   const [allTodos, setAllTodos] = useState<TodoItem[]>([]);
+  const [templates, setTemplates] = useState<Array<{ id: string; title: string; description: string | null; dollarAmount: number | null; category: string }>>([]);
+  const [selectedTemplates, setSelectedTemplates] = useState<Set<string>>(new Set());
+  const [templateAmounts, setTemplateAmounts] = useState<Record<string, number>>({});
+  const [bulkResult, setBulkResult] = useState('');
+  const [isParent, setIsParent] = useState(false);
   const [dragOverCol, setDragOverCol] = useState<string | null>(null);
 
   const fetchTodos = useCallback(async () => {
@@ -64,11 +69,15 @@ export default function TodosPage() {
     }
     setTodos(combined);
 
-    // Load config
+    // Load config + templates
     fetch('/api/admin').then((r) => r.json()).then((data) => {
       if (data.config?.minPayout) setMinPayout(Number(data.config.minPayout) || 20);
       if (data.config?.maxActiveAmount) setMaxActive(Number(data.config.maxActiveAmount) || 20);
+      // Check if current member is a parent (first two members are parents by default)
+      const memberIdx = data.members?.findIndex((m: { name: string }) => m.name === currentMember?.name);
+      setIsParent(memberIdx !== undefined && memberIdx < 2);
     }).catch(() => {});
+    fetch('/api/grab-templates').then((r) => r.json()).then(setTemplates).catch(() => {});
   }, [currentMember]);
 
   useEffect(() => { fetchTodos(); }, [fetchTodos]);
@@ -350,15 +359,16 @@ export default function TodosPage() {
           </div>
         )}
 
-        <div className="flex gap-1 bg-white/5 rounded-xl p-1 mb-8 max-w-xl">
+        <div className="flex gap-1 bg-white/5 rounded-xl p-1 mb-8 overflow-x-auto">
           {([
-            { key: 'mine' as const, label: '📋 My Tasks' },
-            { key: 'grab' as const, label: `🏷️ Grab Tasks${unclaimedTasks.length > 0 ? ` (${unclaimedTasks.length})` : ''}` },
-            { key: 'assigned' as const, label: '👥 Assigned by Me' },
-            { key: 'archived' as const, label: `📦 Archived` },
-          ]).map((t) => (
+            { key: 'mine' as const, label: '📋 My Tasks', show: true },
+            { key: 'grab' as const, label: `🏷️ Grab${unclaimedTasks.length > 0 ? ` (${unclaimedTasks.length})` : ''}`, show: true },
+            { key: 'assigned' as const, label: '👥 Assigned', show: true },
+            { key: 'manage' as const, label: '⚙️ Manage', show: isParent },
+            { key: 'archived' as const, label: '📦 Archive', show: true },
+          ]).filter((t) => t.show).map((t) => (
             <button key={t.key} onClick={() => setTab(t.key as typeof tab)}
-              className={`flex-1 py-2.5 rounded-lg text-sm font-medium transition-all ${
+              className={`flex-shrink-0 px-4 py-2.5 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${
                 tab === t.key ? 'bg-white/10 text-white' : 'text-white/40 hover:text-white/70'}`}>
               {t.label}
             </button>
@@ -415,7 +425,7 @@ export default function TodosPage() {
         </AnimatePresence>
 
         {/* ====== KANBAN BOARD (mine / assigned tabs) ====== */}
-        {tab !== 'archived' && tab !== 'grab' && (
+        {tab !== 'archived' && tab !== 'grab' && tab !== 'manage' && (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
             {COLUMNS.map((col) => {
               const items = getColumnItems(col.id);
@@ -555,6 +565,150 @@ export default function TodosPage() {
                 ))}
               </div>
             )}
+          </div>
+        )}
+
+        {/* ====== MANAGE TAB (parent only) ====== */}
+        {tab === 'manage' && isParent && (
+          <div className="space-y-8">
+            {/* Bulk post grab tasks */}
+            <div className="glass rounded-2xl p-6">
+              <h3 className="text-lg font-bold mb-1">🏷️ Post Grab Tasks</h3>
+              <p className="text-white/30 text-xs mb-4">Select tasks and post them all at once for kids to grab</p>
+
+              <div className="flex gap-2 mb-4 flex-wrap">
+                <button onClick={() => setSelectedTemplates(new Set(templates.map((t) => t.id)))}
+                  className="px-3 py-1.5 rounded-lg bg-white/5 text-white/40 text-xs hover:text-white">Select All</button>
+                <button onClick={() => setSelectedTemplates(new Set())}
+                  className="px-3 py-1.5 rounded-lg bg-white/5 text-white/40 text-xs hover:text-white">Clear</button>
+                <button onClick={async () => {
+                  if (selectedTemplates.size === 0) return;
+                  const res = await fetch('/api/grab-templates', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'bulk-post', templateIds: [...selectedTemplates], createdBy: currentMember?.name, amountOverrides: templateAmounts }),
+                  });
+                  const data = await res.json();
+                  setBulkResult(`✅ Posted ${data.count} grab tasks!`);
+                  setSelectedTemplates(new Set());
+                  setTimeout(() => setBulkResult(''), 4000);
+                  fetchTodos();
+                }} disabled={selectedTemplates.size === 0}
+                  className="px-5 py-1.5 rounded-lg bg-gradient-to-r from-emerald-500 to-teal-500 text-white text-xs font-medium disabled:opacity-30">
+                  🏷️ Post {selectedTemplates.size} Tasks
+                </button>
+                {bulkResult && <span className="text-emerald-400 text-xs">{bulkResult}</span>}
+              </div>
+
+              <div className="space-y-1 max-h-[400px] overflow-y-auto">
+                {templates.map((t) => {
+                  const isSelected = selectedTemplates.has(t.id);
+                  return (
+                    <div key={t.id} onClick={() => {
+                      setSelectedTemplates((prev) => { const n = new Set(prev); if (n.has(t.id)) n.delete(t.id); else n.add(t.id); return n; });
+                    }} className={`flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all ${isSelected ? 'bg-emerald-500/10 border border-emerald-500/20' : 'bg-white/[0.01] border border-transparent hover:bg-white/[0.03]'}`}>
+                      <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center text-xs ${isSelected ? 'bg-emerald-500 border-emerald-500 text-white' : 'border-white/15'}`}>
+                        {isSelected && '✓'}
+                      </div>
+                      <span className="text-sm flex-1">{t.title}</span>
+                      {t.description && <span className="text-[10px] text-white/15 hidden md:block max-w-[200px] truncate">{t.description}</span>}
+                      <input type="number" step="0.5" min="0"
+                        value={templateAmounts[t.id] ?? t.dollarAmount ?? ''}
+                        onClick={(e) => e.stopPropagation()}
+                        onChange={(e) => { e.stopPropagation(); setTemplateAmounts((p) => ({ ...p, [t.id]: parseFloat(e.target.value) || 0 })); }}
+                        placeholder="$"
+                        className="w-16 bg-white/5 border border-white/10 rounded-lg px-2 py-1 text-xs text-emerald-400 text-right focus:outline-none" />
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Monthly totals / reconciliation */}
+            <div className="glass rounded-2xl p-6">
+              <h3 className="text-lg font-bold mb-1">📊 Monthly Reconciliation</h3>
+              <p className="text-white/30 text-xs mb-4">Summary of earnings and payments by month</p>
+
+              {(() => {
+                // Group all paid/earned tasks by month
+                const months: Record<string, { earned: Record<string, number>; paid: Record<string, number>; pending: Record<string, number>; tasks: TodoItem[] }> = {};
+
+                allTodos.filter((t) => t.dollarAmount && (t.status === 'done' || t.status === 'archived')).forEach((t) => {
+                  const date = t.completedAt || t.createdAt;
+                  const monthKey = date.slice(0, 7); // "2026-03"
+                  if (!months[monthKey]) months[monthKey] = { earned: {}, paid: {}, pending: {}, tasks: [] };
+                  const m = months[monthKey];
+                  m.tasks.push(t);
+                  m.earned[t.assignedTo] = (m.earned[t.assignedTo] || 0) + (t.dollarAmount || 0);
+                  if (t.paidStatus === 'paid') {
+                    m.paid[t.assignedTo] = (m.paid[t.assignedTo] || 0) + (t.dollarAmount || 0);
+                  } else {
+                    m.pending[t.assignedTo] = (m.pending[t.assignedTo] || 0) + (t.dollarAmount || 0);
+                  }
+                });
+
+                const sortedMonths = Object.keys(months).sort((a, b) => b.localeCompare(a));
+
+                if (sortedMonths.length === 0) return <p className="text-white/20 text-sm">No completed paid tasks yet.</p>;
+
+                return (
+                  <div className="space-y-4">
+                    {sortedMonths.map((monthKey) => {
+                      const m = months[monthKey];
+                      const monthDate = new Date(monthKey + '-01T00:00:00');
+                      const monthName = monthDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+                      const allPeople = [...new Set([...Object.keys(m.earned)])];
+                      const totalEarned = Object.values(m.earned).reduce((s, v) => s + v, 0);
+                      const totalPaid = Object.values(m.paid).reduce((s, v) => s + v, 0);
+                      const totalPending = Object.values(m.pending).reduce((s, v) => s + v, 0);
+
+                      return (
+                        <div key={monthKey} className="p-4 bg-white/[0.02] rounded-xl">
+                          <div className="flex items-center justify-between mb-3">
+                            <h4 className="font-bold text-sm">{monthName}</h4>
+                            <div className="flex gap-4 text-xs">
+                              <span className="text-emerald-400">Earned: ${totalEarned.toFixed(2)}</span>
+                              <span className="text-white/40">Paid: ${totalPaid.toFixed(2)}</span>
+                              {totalPending > 0 && <span className="text-amber-400">Pending: ${totalPending.toFixed(2)}</span>}
+                            </div>
+                          </div>
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-xs">
+                              <thead>
+                                <tr className="text-white/25 border-b border-white/5">
+                                  <th className="text-left py-2 pr-4 font-medium">Person</th>
+                                  <th className="text-right py-2 px-2 font-medium">Tasks</th>
+                                  <th className="text-right py-2 px-2 font-medium">Earned</th>
+                                  <th className="text-right py-2 px-2 font-medium">Paid</th>
+                                  <th className="text-right py-2 pl-2 font-medium">Owed</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {allPeople.map((person) => {
+                                  const taskCount = m.tasks.filter((t) => t.assignedTo === person).length;
+                                  return (
+                                    <tr key={person} className="border-b border-white/[0.03]">
+                                      <td className="py-2 pr-4">
+                                        {members.find((mb) => mb.name === person)?.emoji} {person}
+                                      </td>
+                                      <td className="text-right py-2 px-2 text-white/30">{taskCount}</td>
+                                      <td className="text-right py-2 px-2 text-emerald-400">${(m.earned[person] || 0).toFixed(2)}</td>
+                                      <td className="text-right py-2 px-2 text-white/40">${(m.paid[person] || 0).toFixed(2)}</td>
+                                      <td className={`text-right py-2 pl-2 font-bold ${(m.pending[person] || 0) > 0 ? 'text-amber-400' : 'text-white/20'}`}>
+                                        ${(m.pending[person] || 0).toFixed(2)}
+                                      </td>
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
+            </div>
           </div>
         )}
 
