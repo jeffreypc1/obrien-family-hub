@@ -476,6 +476,10 @@ export default function AdminPage() {
           <GrabTemplatesAdmin currentMember={members[0]?.name || 'Admin'} />
         </Section>
 
+        <Section id="easter-eggs" icon="🥚" title="Easter Eggs" subtitle="Hidden surprise rewards at task milestones">
+          <EasterEggsAdmin />
+        </Section>
+
         <Section id="grade-incentives" icon="🎓" title="Grade Incentives" subtitle="GPA multipliers and missing assignment penalties for chore payments">
           <GradeIncentivesAdmin adminPin={pin} />
         </Section>
@@ -1211,6 +1215,103 @@ function GradeIncentivesAdmin({ adminPin }: { adminPin: string }) {
         <button onClick={handleSave} disabled={saving}
           className="px-6 py-3 rounded-xl bg-gradient-to-r from-purple-500 to-pink-500 text-white font-medium disabled:opacity-30">
           {saving ? 'Saving...' : 'Save Incentives'}
+        </button>
+        {msg && <span className="text-emerald-400 text-sm">{msg}</span>}
+      </div>
+    </div>
+  );
+}
+
+interface EasterEggConfig { id: string; title: string; description: string; dollarAmount: number | null; otherReward: string; everyNTasks: number; active: boolean; }
+
+function EasterEggsAdmin() {
+  const [eggs, setEggs] = useState<EasterEggConfig[]>([]);
+  const [saving, setSaving] = useState(false);
+  const [msg, setMsg] = useState('');
+
+  useEffect(() => {
+    fetch('/api/admin').then((r) => r.json()).then((data) => {
+      if (data.config?.easterEggsJson) {
+        try { setEggs(JSON.parse(data.config.easterEggsJson)); } catch {}
+      }
+      if (eggs.length === 0 && !data.config?.easterEggsJson) {
+        // Seed defaults
+        setEggs([
+          { id: 'eg1', title: 'Bonus Bucks!', description: 'You completed 10 tasks! Here\'s a bonus.', dollarAmount: 5, otherReward: '', everyNTasks: 10, active: true },
+          { id: 'eg2', title: 'Shopping Spree!', description: 'Amazing! 25 tasks done. You earned a shopping trip!', dollarAmount: 30, otherReward: 'Shopping trip', everyNTasks: 25, active: true },
+          { id: 'eg3', title: 'Movie Night!', description: '50 tasks! Pick any movie and snacks are on us.', dollarAmount: null, otherReward: 'Movie night of your choice + snacks', everyNTasks: 50, active: true },
+          { id: 'eg4', title: 'The Big One!', description: '100 tasks completed! You\'re a legend.', dollarAmount: 50, otherReward: 'Dinner at your favorite restaurant', everyNTasks: 100, active: true },
+        ]);
+      }
+    });
+  }, []);
+
+  const handleSave = async () => {
+    setSaving(true);
+    await fetch('/api/admin', {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pin: '', config: { easterEggsJson: JSON.stringify(eggs) } }),
+    });
+    setSaving(false); setMsg('✓ Saved!');
+    setTimeout(() => setMsg(''), 3000);
+  };
+
+  const addEgg = () => {
+    setEggs((prev) => [...prev, { id: `eg-${Date.now()}`, title: '', description: '', dollarAmount: null, otherReward: '', everyNTasks: 10, active: true }]);
+  };
+
+  const updateEgg = (idx: number, field: string, value: unknown) => {
+    setEggs((prev) => prev.map((e, i) => i === idx ? { ...e, [field]: value } : e));
+  };
+
+  return (
+    <div className="space-y-4">
+      <p className="text-sm text-white/25">Easter eggs are surprise rewards that trigger when a family member completes their Nth task. They see a fun animation with the reward!</p>
+
+      {eggs.map((egg, i) => (
+        <div key={egg.id} className={`p-4 rounded-xl border ${egg.active ? 'bg-amber-500/5 border-amber-500/10' : 'bg-white/[0.01] border-white/5 opacity-50'}`}>
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <span className="text-xl">🥚</span>
+              <span className="text-sm font-bold">Every <input type="number" min="1" value={egg.everyNTasks}
+                onChange={(e) => updateEgg(i, 'everyNTasks', parseInt(e.target.value) || 1)}
+                className="w-14 bg-white/5 border border-white/10 rounded px-2 py-0.5 text-sm text-amber-400 text-center focus:outline-none inline mx-1"
+              /> tasks</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <button onClick={() => updateEgg(i, 'active', !egg.active)}
+                className={`w-10 h-5 rounded-full transition-colors relative ${egg.active ? 'bg-emerald-500' : 'bg-white/15'}`}>
+                <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform ${egg.active ? 'left-5' : 'left-0.5'}`} />
+              </button>
+              <button onClick={() => setEggs((prev) => prev.filter((_, j) => j !== i))}
+                className="text-white/15 hover:text-red-400 text-sm">✕</button>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <input value={egg.title} onChange={(e) => updateEgg(i, 'title', e.target.value)} placeholder="Title (e.g., Bonus Bucks!)"
+              className="bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-white/20 focus:outline-none" />
+            <input value={egg.description} onChange={(e) => updateEgg(i, 'description', e.target.value)} placeholder="Description"
+              className="bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-white/20 focus:outline-none" />
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-white/30">$</span>
+              <input type="number" step="1" value={egg.dollarAmount || ''} onChange={(e) => updateEgg(i, 'dollarAmount', e.target.value ? parseFloat(e.target.value) : null)}
+                placeholder="Dollar amount"
+                className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-emerald-400 placeholder-white/20 focus:outline-none" />
+            </div>
+            <input value={egg.otherReward} onChange={(e) => updateEgg(i, 'otherReward', e.target.value)} placeholder="Other reward (e.g., Shopping trip)"
+              className="bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-amber-400 placeholder-white/20 focus:outline-none" />
+          </div>
+        </div>
+      ))}
+
+      <button onClick={addEgg} className="w-full py-3 rounded-xl border border-dashed border-white/10 text-white/25 hover:text-white/50 text-sm">
+        + Add Easter Egg
+      </button>
+
+      <div className="flex items-center gap-3">
+        <button onClick={handleSave} disabled={saving}
+          className="px-6 py-3 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-white font-medium disabled:opacity-30">
+          {saving ? 'Saving...' : 'Save Easter Eggs'}
         </button>
         {msg && <span className="text-emerald-400 text-sm">{msg}</span>}
       </div>

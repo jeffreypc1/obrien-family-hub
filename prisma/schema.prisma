@@ -45,6 +45,7 @@ model HubConfig {
   gradeMultipliersJson  String?
   missingPenaltiesJson  String?
   missingOverridesJson  String?
+  easterEggsJson        String?
   updatedAt             DateTime @updatedAt
 }
 

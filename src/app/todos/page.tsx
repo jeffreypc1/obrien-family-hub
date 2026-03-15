@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
 import { useFamilyMember } from '@/components/FamilyContext';
 import ThemedBackground from '@/components/ThemedBackground';
+import TaskCelebration from '@/components/TaskCelebration';
 
 interface TodoItem {
   id: string;
@@ -72,6 +73,8 @@ export default function TodosPage() {
   const [payNote, setPayNote] = useState('');
   const [deadlineModal, setDeadlineModal] = useState<{ taskId: string; taskTitle: string; dueDate: string; dollarAmount: number } | null>(null);
   const [showHowTo, setShowHowTo] = useState(false);
+  const [celebration, setCelebration] = useState<{ type: 'done' | 'easter-egg'; easterEgg?: { title: string; description: string; dollarAmount?: number; otherReward?: string } } | null>(null);
+  const [easterEggs, setEasterEggs] = useState<Array<{ title: string; description: string; dollarAmount: number | null; otherReward: string; everyNTasks: number; active: boolean }>>([]);
 
   const fetchTodos = useCallback(async () => {
     if (!currentMember) return;
@@ -101,6 +104,13 @@ export default function TodosPage() {
       setIsParent(memberIdx !== undefined && memberIdx < 2);
     }).catch(() => {});
     fetch('/api/grab-templates').then((r) => r.json()).then(setTemplates).catch(() => {});
+
+    // Load easter eggs
+    fetch('/api/admin').then((r) => r.json()).then((data) => {
+      if (data.config?.easterEggsJson) {
+        try { setEasterEggs(JSON.parse(data.config.easterEggsJson).filter((e: { active: boolean }) => e.active)); } catch {}
+      }
+    }).catch(() => {});
 
     // Fetch grade multiplier for current member
     if (currentMember) {
@@ -204,6 +214,32 @@ export default function TodosPage() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id, status: newStatus }),
     });
+
+    // Celebration when completing a task
+    if (newStatus === 'done') {
+      setCelebration({ type: 'done' });
+
+      // Check for easter eggs
+      const completedCount = todos.filter((t) =>
+        t.assignedTo === currentMember?.name && (t.status === 'done' || t.status === 'archived' || t.paidStatus === 'paid')
+      ).length + 1; // +1 for the one just completed
+
+      const triggeredEgg = easterEggs.find((egg) => completedCount > 0 && completedCount % egg.everyNTasks === 0);
+      if (triggeredEgg) {
+        setTimeout(() => {
+          setCelebration({
+            type: 'easter-egg',
+            easterEgg: {
+              title: triggeredEgg.title,
+              description: triggeredEgg.description,
+              dollarAmount: triggeredEgg.dollarAmount || undefined,
+              otherReward: triggeredEgg.otherReward || undefined,
+            },
+          });
+        }, 1800); // Show after the done celebration finishes
+      }
+    }
+
     fetchTodos();
   };
 
@@ -1113,6 +1149,15 @@ export default function TodosPage() {
           </div>
         )}
       </div>
+
+      {/* Celebration animation */}
+      {celebration && (
+        <TaskCelebration
+          type={celebration.type}
+          easterEgg={celebration.easterEgg}
+          onComplete={() => setCelebration(null)}
+        />
+      )}
 
       {/* How It Works modal */}
       <AnimatePresence>
