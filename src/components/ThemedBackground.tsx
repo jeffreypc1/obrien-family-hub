@@ -52,16 +52,12 @@ export default function ThemedBackground({ theme }: { theme: string }) {
   const t = THEMES[theme] || THEMES.kitchen;
 
   return (
-    <>
-      {/* Override body background with themed version */}
-      <style>{`body { background: #050510 !important; }`}</style>
-      <div className="fixed inset-0 pointer-events-none" style={{ zIndex: -1 }}>
-        <div className="absolute inset-0" style={{ backgroundImage: t.gradient }} />
-        <div className="absolute inset-0" style={{ backgroundImage: t.pattern }} />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-[200px] opacity-[0.025] select-none">
-          {t.emoji}
-        </div>
+    <div className="fixed inset-0 pointer-events-none" style={{ zIndex: -1, background: '#050510' }}>
+      <div className="absolute inset-0" style={{ backgroundImage: t.gradient }} />
+      <div className="absolute inset-0" style={{ backgroundImage: t.pattern }} />
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-[200px] opacity-[0.025] select-none">
+        {t.emoji}
       </div>
-    </>
+    </div>
   );
 }
