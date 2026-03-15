@@ -1,15 +1,26 @@
 import { NextResponse } from 'next/server';
 
+export const maxDuration = 30; // Allow up to 30 seconds for Canvas API calls
+
 const CANVAS_TOKEN = process.env.CANVAS_API_TOKEN;
 const CANVAS_BASE = process.env.CANVAS_BASE_URL || 'https://acalanes.instructure.com/api/v1';
 
 async function canvasFetch(path: string) {
-  const res = await fetch(`${CANVAS_BASE}${path}`, {
-    headers: { Authorization: `Bearer ${CANVAS_TOKEN}` },
-    next: { revalidate: 3600 }, // Cache for 1 hour
-  });
-  if (!res.ok) throw new Error(`Canvas API ${res.status}`);
-  return res.json();
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 10000);
+  try {
+    const res = await fetch(`${CANVAS_BASE}${path}`, {
+      headers: { Authorization: `Bearer ${CANVAS_TOKEN}` },
+      signal: controller.signal,
+      cache: 'no-store',
+    });
+    clearTimeout(timeout);
+    if (!res.ok) throw new Error(`Canvas API ${res.status}`);
+    return res.json();
+  } catch (e) {
+    clearTimeout(timeout);
+    throw e;
+  }
 }
 
 interface Student { id: number; name: string; }
@@ -60,7 +71,7 @@ export async function GET() {
       let missingAssignments: Array<{ courseName: string; name: string; dueAt: string | null; pointsPossible: number }> = [];
       let upcomingAssignments: Array<{ courseName: string; name: string; dueAt: string; pointsPossible: number }> = [];
 
-      for (const course of currentCourses.slice(0, 8)) { // Limit API calls
+      for (const course of currentCourses.filter((c) => c.grade).slice(0, 6)) { // Limit API calls
         try {
           const assignments: Assignment[] = await canvasFetch(
             `/courses/${course.courseId}/assignments?per_page=50&include[]=submission&order_by=due_at&bucket=upcoming`
