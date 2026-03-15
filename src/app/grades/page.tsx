@@ -40,7 +40,7 @@ export default function GradesPage() {
   const [selectedStudent, setSelectedStudent] = useState<number | null>(null);
   const [view, setView] = useState<'overview' | 'analytics' | 'assignments' | 'visual' | 'history'>('overview');
   const [gpaPeriod, setGpaPeriod] = useState<'current' | 'withzeros'>('current');
-  const [dateFilter, setDateFilter] = useState('all');
+  const [dateFilter, setDateFilter] = useState('sem-236'); // Default to Semester 2
   const [courseFilter, setCourseFilter] = useState('all');
   const [gradeFilter, setGradeFilter] = useState('all');
   const [categoryFilter, setCategoryFilter] = useState('all');
@@ -267,29 +267,46 @@ export default function GradesPage() {
                             <span className={`text-white/20 text-sm transition-transform ${isExpanded ? 'rotate-180' : ''}`}>▼</span>
                           </button>
 
-                          {/* Expanded assignments */}
-                          {isExpanded && cd.assignments?.length > 0 && (
+                          {/* Expanded assignments — filtered to current semester */}
+                          {isExpanded && (cd.assignments || []).length > 0 && (() => {
+                            // Only show Semester 2 assignments (Jan 6, 2026+)
+                            const sem2Start = new Date('2026-01-06T00:00:00');
+                            const semesterAssignments = (cd.assignments || [])
+                              .filter((a) => {
+                                if (!a.submitted && !a.missing) return false;
+                                const aDate = a.gradedAt || a.dueAt || a.submittedAt;
+                                if (!aDate) return true; // Include if no date (might be current)
+                                try { return new Date(aDate) >= sem2Start; } catch { return true; }
+                              })
+                              .sort((a, b) => {
+                                if (a.missing && !b.missing) return -1;
+                                if (!a.missing && b.missing) return 1;
+                                return (b.gradedAt || '').localeCompare(a.gradedAt || '');
+                              });
+                            return semesterAssignments.length > 0 ? (
                             <div className="border-t border-white/5 px-5 py-3 max-h-[400px] overflow-y-auto">
+                              <div className="text-sm text-white/20 mb-2 flex items-center justify-between">
+                                <span>Semester 2 assignments ({semesterAssignments.length})</span>
+                              </div>
                               <div className="space-y-1">
-                                {(cd.assignments || []).filter((a) => a.submitted || a.missing).sort((a, b) => {
-                                  if (a.missing && !b.missing) return -1;
-                                  if (!a.missing && b.missing) return 1;
-                                  return (b.gradedAt || '').localeCompare(a.gradedAt || '');
-                                }).map((a, j) => (
+                                {semesterAssignments.map((a, j) => (
                                   <div key={j} className={`flex items-center gap-3 py-2 px-2 rounded-lg text-sm ${a.missing ? 'bg-red-500/5' : a.late ? 'bg-amber-500/5' : ''}`}>
                                     <span className="text-sm w-10 text-right font-mono" style={{ color: a.missing ? '#EF4444' : a.score !== null ? getColor(a.grade) : '#4B5563' }}>
-                                      {a.missing ? 'MISS' : a.score !== null ? a.score.toFixed(0) : '—'}
+                                      {a.missing ? 'MISS' : a.score !== null ? `${a.score}` : '—'}
                                     </span>
                                     <span className="text-white/15 text-sm">/</span>
                                     <span className="text-sm text-white/25 w-6">{a.pointsPossible}</span>
-                                    <span className={`flex-1 text-sm truncate ${a.missing ? 'text-red-400' : 'text-white/60'}`}>{a.name}</span>
+                                    <span className={`flex-1 text-sm truncate ${a.missing ? 'text-red-400' : 'text-white/60'}`}>{a.name || '?'}</span>
                                     {a.late && <span className="text-sm text-amber-400">LATE</span>}
-                                    {a.dueAt && <span className="text-sm text-white/15">{new Date(a.dueAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>}
+                                    {a.dueAt && (() => { try { return <span className="text-sm text-white/15">{new Date(a.dueAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>; } catch { return null; } })()}
                                   </div>
                                 ))}
                               </div>
                             </div>
-                          )}
+                            ) : (
+                              <div className="border-t border-white/5 px-5 py-4 text-white/20 text-sm">No assignments this semester.</div>
+                            );
+                          })()}
                         </motion.div>
                       );
                     })}
@@ -719,7 +736,7 @@ export default function GradesPage() {
                                     {a.missing ? <span className="text-red-400">⚠️</span> : a.late ? <span className="text-amber-400">🕐</span> : a.submitted ? <span className="text-emerald-400">✓</span> : '—'}
                                   </td>
                                   <td className="py-2 px-3 text-right text-white/20">
-                                    {(a.gradedAt || a.dueAt) ? new Date(a.gradedAt || a.dueAt!).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '—'}
+                                    {(() => { try { const d = a.gradedAt || a.dueAt; return d ? new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '—'; } catch { return '—'; } })()}
                                   </td>
                                 </tr>
                               ))}
@@ -760,13 +777,13 @@ export default function GradesPage() {
                 {view === 'history' && (
                   <div className="glass rounded-2xl p-6">
                     <h3 className="text-lg font-bold mb-4">📜 Past Semesters</h3>
-                    {detail.pastCourses.length > 0 ? (
+                    {(detail.pastCourses || []).length > 0 ? (
                       <div className="space-y-2">
-                        {detail.pastCourses.map((c, i) => (
+                        {(detail.pastCourses || []).map((c, i) => (
                           <div key={i} className="flex items-center gap-3 py-2">
-                            <span className="font-bold text-sm w-6" style={{ color: getColor(c.grade) }}>{c.grade}</span>
-                            <span className="text-sm flex-1 text-white/60">{cleanName(c.courseName)}</span>
-                            <span className="text-sm text-white/25">{c.score?.toFixed(1)}%</span>
+                            <span className="font-bold text-sm w-6" style={{ color: getColor(c.grade) }}>{c.grade || '?'}</span>
+                            <span className="text-sm flex-1 text-white/60">{cleanName(c.courseName || '')}</span>
+                            <span className="text-sm text-white/25">{c.score?.toFixed(1) || '?'}%</span>
                           </div>
                         ))}
                       </div>
