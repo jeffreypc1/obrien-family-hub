@@ -328,63 +328,85 @@ export default function RecipesPage() {
                       </button>
                     </div>
 
-                    {/* Tag picker dropdown */}
+                    {/* Tag picker modal */}
                     {editingTagsFor === item.id && (
-                      <div className="mt-2 p-3 glass rounded-xl space-y-3" onClick={(e) => e.preventDefault()}>
-                        {/* Selected tags */}
-                        {editingTagsList.length > 0 && (
-                          <div className="flex gap-1 flex-wrap">
-                            {editingTagsList.map((tagName) => {
-                              const tag = allTags.find((t) => t.name === tagName);
-                              return (
-                                <span key={tagName} className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px]"
-                                  style={{ background: `${tag?.color || '#6B7280'}20`, color: tag?.color || '#6B7280' }}>
-                                  {tag?.icon || '🏷️'} {tagName}
-                                  <button onClick={() => setEditingTagsList((prev) => prev.filter((t) => t !== tagName))}
-                                    className="hover:text-red-400 ml-0.5">✕</button>
-                                </span>
-                              );
-                            })}
+                      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
+                        onClick={() => setEditingTagsFor(null)}>
+                        <div className="w-full max-w-lg bg-[#1a1a2e] border border-white/10 rounded-2xl p-6 space-y-5 shadow-2xl"
+                          onClick={(e) => e.stopPropagation()}>
+                          <div className="flex items-center justify-between">
+                            <h3 className="text-lg font-bold">🏷️ Edit Tags for &ldquo;{item.title}&rdquo;</h3>
+                            <button onClick={() => setEditingTagsFor(null)} className="text-white/40 hover:text-white text-xl">✕</button>
                           </div>
-                        )}
 
-                        {/* Tag grid */}
-                        <div className="flex gap-1 flex-wrap max-h-[150px] overflow-y-auto">
-                          {allTags.filter((t) => !editingTagsList.includes(t.name)).map((tag) => (
-                            <button key={tag.id}
-                              onClick={() => setEditingTagsList((prev) => [...prev, tag.name])}
-                              className="px-2 py-1 rounded-lg text-[10px] bg-white/5 text-white/30 hover:text-white/60 hover:bg-white/10 transition-all">
-                              {tag.icon} {tag.name}
+                          {/* Selected tags */}
+                          <div>
+                            <label className="text-sm text-white/50 block mb-2">Selected Tags</label>
+                            {editingTagsList.length > 0 ? (
+                              <div className="flex gap-2 flex-wrap">
+                                {editingTagsList.map((tagName) => {
+                                  const tag = allTags.find((t) => t.name === tagName);
+                                  return (
+                                    <span key={tagName} className="flex items-center gap-2 px-3 py-1.5 rounded-xl text-sm font-medium"
+                                      style={{ background: `${tag?.color || '#6B7280'}25`, color: tag?.color || '#9CA3AF', border: `1px solid ${tag?.color || '#6B7280'}40` }}>
+                                      {tag?.icon || '🏷️'} {tagName}
+                                      <button onClick={() => setEditingTagsList((prev) => prev.filter((t) => t !== tagName))}
+                                        className="hover:text-red-400 text-base ml-1">✕</button>
+                                    </span>
+                                  );
+                                })}
+                              </div>
+                            ) : (
+                              <p className="text-white/20 text-sm">No tags selected. Click tags below to add.</p>
+                            )}
+                          </div>
+
+                          {/* Available tags */}
+                          <div>
+                            <label className="text-sm text-white/50 block mb-2">Available Tags</label>
+                            <div className="flex gap-2 flex-wrap max-h-[250px] overflow-y-auto">
+                              {allTags.filter((t) => !editingTagsList.includes(t.name)).map((tag) => (
+                                <button key={tag.id}
+                                  onClick={() => setEditingTagsList((prev) => [...prev, tag.name])}
+                                  className="px-3 py-2 rounded-xl text-sm font-medium bg-white/5 text-white/50 hover:text-white hover:bg-white/10 transition-all border border-white/5 hover:border-white/20">
+                                  {tag.icon} {tag.name}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+
+                          {/* Custom tag */}
+                          <div>
+                            <label className="text-sm text-white/50 block mb-2">Create New Tag</label>
+                            <div className="flex gap-3">
+                              <input type="text" value={customTagInput} onChange={(e) => setCustomTagInput(e.target.value)}
+                                onKeyDown={async (e) => {
+                                  if (e.key === 'Enter' && customTagInput.trim()) {
+                                    await fetch('/api/recipe-tags', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                                      body: JSON.stringify({ name: customTagInput.trim() }) });
+                                    setEditingTagsList((prev) => [...prev, customTagInput.trim()]);
+                                    setCustomTagInput('');
+                                    fetchTags();
+                                  }
+                                }}
+                                placeholder="Type a new tag and press Enter..."
+                                className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-white/25 focus:outline-none focus:border-orange-500" />
+                            </div>
+                          </div>
+
+                          {/* Save / Cancel */}
+                          <div className="flex gap-3 pt-2">
+                            <button onClick={async () => {
+                              await fetch('/api/recipes/items', { method: 'PUT', headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ id: item.id, tagsJson: JSON.stringify(editingTagsList) }) });
+                              setEditingTagsFor(null);
+                              fetchItems();
+                            }} className="px-6 py-3 rounded-xl bg-gradient-to-r from-orange-500 to-red-500 text-white font-medium text-sm">
+                              Save Tags
                             </button>
-                          ))}
-                        </div>
-
-                        {/* Custom tag input */}
-                        <div className="flex gap-2">
-                          <input type="text" value={customTagInput} onChange={(e) => setCustomTagInput(e.target.value)}
-                            onKeyDown={async (e) => {
-                              if (e.key === 'Enter' && customTagInput.trim()) {
-                                await fetch('/api/recipe-tags', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-                                  body: JSON.stringify({ name: customTagInput.trim() }) });
-                                setEditingTagsList((prev) => [...prev, customTagInput.trim()]);
-                                setCustomTagInput('');
-                                fetchTags();
-                              }
-                            }}
-                            placeholder="Type new tag + Enter"
-                            className="flex-1 bg-white/5 border border-white/10 rounded-lg px-2 py-1 text-[11px] text-white placeholder-white/20 focus:outline-none" />
-                        </div>
-
-                        {/* Save / Cancel */}
-                        <div className="flex gap-2">
-                          <button onClick={async () => {
-                            await fetch('/api/recipes/items', { method: 'PUT', headers: { 'Content-Type': 'application/json' },
-                              body: JSON.stringify({ id: item.id, tagsJson: JSON.stringify(editingTagsList) }) });
-                            setEditingTagsFor(null);
-                            fetchItems();
-                          }} className="px-3 py-1.5 rounded-lg bg-orange-500/15 text-orange-400 text-xs font-medium">Save Tags</button>
-                          <button onClick={() => setEditingTagsFor(null)}
-                            className="px-3 py-1.5 rounded-lg bg-white/5 text-white/30 text-xs">Cancel</button>
+                            <button onClick={() => setEditingTagsFor(null)}
+                              className="px-6 py-3 rounded-xl bg-white/5 text-white/40 text-sm">Cancel</button>
+                          </div>
                         </div>
                       </div>
                     )}
