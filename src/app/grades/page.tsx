@@ -16,7 +16,7 @@ interface CourseDetail extends CourseGrade {
   assignmentGroups: Array<{ name: string; weight: number }>;
 }
 interface GradingPeriod { id: number; title: string; start_date: string; end_date: string; }
-interface StudentOverview { id: number; name: string; courses: CourseGrade[]; gpa: number | null; }
+interface StudentOverview { id: number; name: string; courses: CourseGrade[]; yearGpa: number | null; semesterGpa: number | null; currentPeriod: string | null; }
 interface StudentDetail { student: { id: number; name: string }; courses: CourseDetail[]; pastCourses: CourseGrade[]; gradingPeriods: GradingPeriod[]; lastUpdated: string; }
 
 const GRADE_COLORS: Record<string, string> = {
@@ -36,6 +36,7 @@ export default function GradesPage() {
   const [error, setError] = useState('');
   const [selectedStudent, setSelectedStudent] = useState<number | null>(null);
   const [view, setView] = useState<'overview' | 'analytics' | 'assignments' | 'visual' | 'history'>('overview');
+  const [gpaPeriod, setGpaPeriod] = useState<'current' | 'year'>('current');
   const [dateFilter, setDateFilter] = useState('all');
   const [courseFilter, setCourseFilter] = useState('all');
   const [gradeFilter, setGradeFilter] = useState('all');
@@ -121,7 +122,21 @@ export default function GradesPage() {
       </div>
 
       <div className="max-w-6xl mx-auto px-6 py-8">
-        <h1 className="text-3xl font-bold mb-8">📚 Grades Dashboard</h1>
+        <div className="flex items-center justify-between mb-8 flex-wrap gap-4">
+          <h1 className="text-3xl font-bold">📚 Grades Dashboard</h1>
+          {!selectedStudent && (
+            <div className="flex gap-1 bg-white/5 rounded-xl p-1">
+              <button onClick={() => setGpaPeriod('current')}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${gpaPeriod === 'current' ? 'bg-white/10 text-white' : 'text-white/40'}`}>
+                This Semester
+              </button>
+              <button onClick={() => setGpaPeriod('year')}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${gpaPeriod === 'year' ? 'bg-white/10 text-white' : 'text-white/40'}`}>
+                Full Year
+              </button>
+            </div>
+          )}
+        </div>
 
         {!selectedStudent ? (
           /* ====== OVERVIEW ====== */
@@ -136,12 +151,15 @@ export default function GradesPage() {
                   className="glass rounded-2xl p-6 text-left hover:border-white/15 transition-all">
                   <div className="flex items-center justify-between mb-4">
                     <h2 className="text-2xl font-bold">{student.name.split(' ')[0]}</h2>
-                    {student.gpa && (
-                      <div className="text-right">
-                        <span className="text-sm text-white/30">GPA</span>
-                        <p className="text-3xl font-bold" style={{ color: student.gpa >= 3.0 ? '#22C55E' : student.gpa >= 2.0 ? '#FBBF24' : '#EF4444' }}>{student.gpa.toFixed(2)}</p>
-                      </div>
-                    )}
+                    {(() => {
+                      const gpa = gpaPeriod === 'current' ? (student.semesterGpa || student.yearGpa) : student.yearGpa;
+                      return gpa ? (
+                        <div className="text-right">
+                          <span className="text-sm text-white/30">{gpaPeriod === 'current' ? (student.currentPeriod || 'Semester') : 'Year'} GPA</span>
+                          <p className="text-3xl font-bold" style={{ color: gpa >= 3.0 ? '#22C55E' : gpa >= 2.0 ? '#FBBF24' : '#EF4444' }}>{gpa.toFixed(2)}</p>
+                        </div>
+                      ) : null;
+                    })()}
                   </div>
                   <div className="space-y-1.5 mb-4">
                     {graded.sort((a, b) => GRADE_ORDER.indexOf(a.grade!) - GRADE_ORDER.indexOf(b.grade!)).map((c) => (

@@ -133,30 +133,59 @@ export async function GET(request: Request) {
       });
     }
 
+    // Get grading periods from any current course
+    let overviewGradingPeriods: Array<{ id: number; title: string; start_date: string; end_date: string }> = [];
+    const anyCourse = courses.find((c) => c.name?.startsWith('25-26'));
+    if (anyCourse) {
+      const gpData = await canvasFetch(`/courses/${anyCourse.id}/grading_periods`);
+      if (gpData?.grading_periods) overviewGradingPeriods = gpData.grading_periods;
+    }
+
+    // Determine current semester
+    const now = new Date();
+    const currentPeriod = overviewGradingPeriods.find((p) =>
+      now >= new Date(p.start_date) && now <= new Date(p.end_date)
+    );
+
     // Overview for all students
     const studentData = await Promise.all(filteredStudents.map(async (student) => {
       const enrollments: Enrollment[] = await canvasFetch(
-        `/users/${student.id}/enrollments?per_page=50&state[]=active`
+        `/users/${student.id}/enrollments?per_page=50&state[]=active&include[]=current_grading_period_scores`
       ) || [];
 
       const currentCourses = enrollments
         .filter((e) => e.type === 'StudentEnrollment' && courseMap[e.course_id]?.startsWith('25-26'))
-        .map((e) => ({
-          courseId: e.course_id,
-          courseName: courseMap[e.course_id] || `Course ${e.course_id}`,
-          grade: e.grades?.current_grade || null,
-          score: e.grades?.current_score || null,
-        }));
+        .map((e) => {
+          const g = e.grades || {};
+          // Try to get grading period specific grades
+          const periodGrade = (g as Record<string, unknown>).current_period_grade as string | null;
+          const periodScore = (g as Record<string, unknown>).current_period_score as number | null;
+          return {
+            courseId: e.course_id,
+            courseName: courseMap[e.course_id] || `Course ${e.course_id}`,
+            grade: g.current_grade || null,
+            score: g.current_score || null,
+            semesterGrade: periodGrade || g.current_grade || null,
+            semesterScore: periodScore || g.current_score || null,
+          };
+        });
 
       const gradePoints: Record<string, number> = {
         'A+': 4.3, 'A': 4.0, 'A-': 3.7, 'B+': 3.3, 'B': 3.0, 'B-': 2.7,
         'C+': 2.3, 'C': 2.0, 'C-': 1.7, 'D+': 1.3, 'D': 1.0, 'D-': 0.7, 'F': 0.0,
       };
-      const gradedCourses = currentCourses.filter((c) => c.grade && gradePoints[c.grade] !== undefined);
-      const gpa = gradedCourses.length > 0
-        ? gradedCourses.reduce((s, c) => s + (gradePoints[c.grade!] || 0), 0) / gradedCourses.length : null;
 
-      return { id: student.id, name: student.name, courses: currentCourses, gpa };
+      // Year GPA (from current_grade)
+      const gradedYear = currentCourses.filter((c) => c.grade && gradePoints[c.grade] !== undefined);
+      const yearGpa = gradedYear.length > 0
+        ? gradedYear.reduce((s, c) => s + (gradePoints[c.grade!] || 0), 0) / gradedYear.length : null;
+
+      // Semester GPA (from grading period grade if available)
+      const gradedSem = currentCourses.filter((c) => c.semesterGrade && gradePoints[c.semesterGrade] !== undefined);
+      const semGpa = gradedSem.length > 0
+        ? gradedSem.reduce((s, c) => s + (gradePoints[c.semesterGrade!] || 0), 0) / gradedSem.length : null;
+
+      return { id: student.id, name: student.name, courses: currentCourses, yearGpa, semesterGpa: semGpa, currentPeriod: currentPeriod?.title || null };
     }));
 
     return NextResponse.json({ students: studentData, lastUpdated: new Date().toISOString() });
