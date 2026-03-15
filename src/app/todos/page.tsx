@@ -17,6 +17,9 @@ interface TodoItem {
   startedAt: string | null;
   completedAt: string | null;
   createdAt: string;
+  dollarAmount: number | null;
+  paidStatus: string | null;
+  paidAt: string | null;
 }
 
 const COLUMNS = [
@@ -34,6 +37,8 @@ export default function TodosPage() {
   const [newDesc, setNewDesc] = useState('');
   const [newDue, setNewDue] = useState('');
   const [newAssignTo, setNewAssignTo] = useState('');
+  const [newAmount, setNewAmount] = useState('');
+  const [showEarnings, setShowEarnings] = useState(false);
   const [dragItem, setDragItem] = useState<string | null>(null);
   const [dragOverCol, setDragOverCol] = useState<string | null>(null);
 
@@ -63,9 +68,10 @@ export default function TodosPage() {
         assignedTo: newAssignTo || currentMember.name,
         createdBy: currentMember.name,
         dueDate: newDue || null,
+        dollarAmount: newAmount ? parseFloat(newAmount) : null,
       }),
     });
-    setNewTitle(''); setNewDesc(''); setNewDue(''); setNewAssignTo('');
+    setNewTitle(''); setNewDesc(''); setNewDue(''); setNewAssignTo(''); setNewAmount('');
     setShowNew(false);
     fetchTodos();
   };
@@ -157,7 +163,7 @@ export default function TodosPage() {
 
       <div className="max-w-7xl mx-auto px-6 py-8">
         {/* Header */}
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-3xl font-bold">✅ To Do List</h1>
             <p className="text-white/40 text-sm mt-1">
@@ -175,8 +181,78 @@ export default function TodosPage() {
                 📦 Archive Done ({doneCount})
               </button>
             )}
+            <button onClick={() => setShowEarnings(!showEarnings)}
+              className={`px-5 py-2.5 rounded-xl text-sm font-medium transition-all ${
+                showEarnings ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/20' : 'bg-white/5 border border-white/10 text-white/40 hover:text-white'}`}>
+              💰 Earnings
+            </button>
           </div>
         </div>
+
+        {/* Earnings dashboard */}
+        <AnimatePresence>
+          {showEarnings && (
+            <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
+              className="mb-6">
+              <div className="glass rounded-2xl p-6">
+                <h3 className="text-sm font-medium text-white/40 uppercase tracking-wider mb-4">💰 Earnings Tracker</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {members.map((m) => {
+                    const memberTasks = todos.filter((t) => t.assignedTo === m.name && t.dollarAmount);
+                    const earned = memberTasks.filter((t) => t.status === 'done' || t.status === 'archived').reduce((s, t) => s + (t.dollarAmount || 0), 0);
+                    const pending = memberTasks.filter((t) => (t.status === 'done' || t.status === 'archived') && t.paidStatus !== 'paid').reduce((s, t) => s + (t.dollarAmount || 0), 0);
+                    const paid = memberTasks.filter((t) => t.paidStatus === 'paid').reduce((s, t) => s + (t.dollarAmount || 0), 0);
+                    const inProgress = memberTasks.filter((t) => t.status === 'todo' || t.status === 'in-progress').reduce((s, t) => s + (t.dollarAmount || 0), 0);
+
+                    if (memberTasks.length === 0) return null;
+                    return (
+                      <div key={m.id} className="p-4 bg-white/[0.02] rounded-xl">
+                        <div className="flex items-center gap-2 mb-3">
+                          <span className="text-xl">{m.emoji}</span>
+                          <span className="font-medium text-sm" style={{ color: m.color }}>{m.name}</span>
+                        </div>
+                        <div className="space-y-2">
+                          <div className="flex justify-between text-xs">
+                            <span className="text-white/30">Total earned</span>
+                            <span className="text-emerald-400 font-bold">${earned.toFixed(2)}</span>
+                          </div>
+                          <div className="flex justify-between text-xs">
+                            <span className="text-white/30">Pending payment</span>
+                            <span className="text-amber-400">${pending.toFixed(2)}</span>
+                          </div>
+                          <div className="flex justify-between text-xs">
+                            <span className="text-white/30">Already paid</span>
+                            <span className="text-white/40">${paid.toFixed(2)}</span>
+                          </div>
+                          {inProgress > 0 && (
+                            <div className="flex justify-between text-xs">
+                              <span className="text-white/20">Still working on</span>
+                              <span className="text-white/20">${inProgress.toFixed(2)}</span>
+                            </div>
+                          )}
+                        </div>
+                        {pending > 0 && currentMember?.name !== m.name && (
+                          <button onClick={() => {
+                            // Mark all unpaid done tasks as paid for this member
+                            memberTasks.filter((t) => (t.status === 'done' || t.status === 'archived') && t.paidStatus !== 'paid')
+                              .forEach((t) => {
+                                fetch('/api/todos', { method: 'PUT', headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({ id: t.id, paidStatus: 'paid' }) });
+                              });
+                            setTimeout(fetchTodos, 500);
+                          }}
+                            className="w-full mt-3 py-2 rounded-xl bg-emerald-500/15 text-emerald-400 text-xs font-medium border border-emerald-500/20 hover:bg-emerald-500/25 transition-all">
+                            ✅ Mark ${pending.toFixed(2)} as Paid via Step
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Tabs */}
         <div className="flex gap-1 bg-white/5 rounded-xl p-1 mb-8 max-w-md">
@@ -221,6 +297,12 @@ export default function TodosPage() {
                       <option key={m.id} value={m.name}>{m.emoji} {m.name}</option>
                     ))}
                   </select>
+                </div>
+                <div>
+                  <label className="text-xs text-white/30 block mb-1">💰 Amount (optional)</label>
+                  <input type="number" step="0.01" min="0" value={newAmount} onChange={(e) => setNewAmount(e.target.value)}
+                    placeholder="$0.00"
+                    className="bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white text-sm focus:outline-none [color-scheme:dark] w-28" />
                 </div>
               </div>
               <div className="flex gap-2">
@@ -275,6 +357,13 @@ export default function TodosPage() {
                           </div>
                           {item.description && <p className="text-white/30 text-xs mt-1.5 line-clamp-2">{item.description}</p>}
                           <div className="flex items-center gap-2 mt-3 flex-wrap">
+                            {item.dollarAmount && (
+                              <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
+                                item.paidStatus === 'paid' ? 'bg-emerald-500/15 text-emerald-400 line-through' :
+                                col.id === 'done' ? 'bg-emerald-500/15 text-emerald-400' : 'bg-amber-500/10 text-amber-400'}`}>
+                                💰 ${item.dollarAmount.toFixed(2)}{item.paidStatus === 'paid' ? ' ✓ paid' : ''}
+                              </span>
+                            )}
                             {item.dueDate && (
                               <span className={`text-[10px] px-2 py-0.5 rounded-full ${
                                 overdue ? 'bg-red-500/15 text-red-400' : 'bg-white/5 text-white/30'}`}>

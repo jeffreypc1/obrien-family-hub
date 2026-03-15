@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   const body = await request.json();
-  const { title, description, assignedTo, createdBy, dueDate } = body;
+  const { title, description, assignedTo, createdBy, dueDate, dollarAmount } = body;
 
   if (!title?.trim() || !assignedTo || !createdBy) {
     return NextResponse.json({ error: 'title, assignedTo, and createdBy required' }, { status: 400 });
@@ -34,6 +34,7 @@ export async function POST(request: NextRequest) {
       assignedTo,
       createdBy,
       dueDate: dueDate || null,
+      dollarAmount: dollarAmount || null,
     },
   });
 
@@ -42,7 +43,7 @@ export async function POST(request: NextRequest) {
 
 export async function PUT(request: NextRequest) {
   const body = await request.json();
-  const { id, status, title, description, dueDate } = body;
+  const { id, status, title, description, dueDate, paidStatus } = body;
 
   if (!id) return NextResponse.json({ error: 'id required' }, { status: 400 });
 
@@ -62,6 +63,10 @@ export async function PUT(request: NextRequest) {
     if (status === 'archived') {
       if (!body.completedAt) updates.completedAt = new Date().toISOString();
     }
+  }
+  if (paidStatus) {
+    updates.paidStatus = paidStatus;
+    if (paidStatus === 'paid') updates.paidAt = new Date().toISOString();
   }
   if (title !== undefined) updates.title = title;
   if (description !== undefined) updates.description = description;
