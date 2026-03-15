@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
+import exifr from 'exifr';
 import { useFamilyMember } from '@/components/FamilyContext';
 import ThemedBackground from '@/components/ThemedBackground';
 
@@ -85,22 +86,81 @@ export default function PhotosPage() {
 
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
-      setUploadProgress(`Uploading ${i + 1} of ${files.length}...`);
+      setUploadProgress(`Reading ${i + 1} of ${files.length}...`);
 
-      // Compress to max 1200px wide, 70% quality (~100-300KB)
+      // Read EXIF metadata before compression
+      let dateTaken = new Date().toISOString().split('T')[0];
+      let location: string | null = null;
+      let camera: string | null = null;
+
+      try {
+        const exif = await exifr.parse(file, {
+          pick: ['DateTimeOriginal', 'CreateDate', 'GPSLatitude', 'GPSLongitude', 'Make', 'Model', 'LensModel'],
+        });
+
+        if (exif) {
+          // Date
+          const exifDate = exif.DateTimeOriginal || exif.CreateDate;
+          if (exifDate instanceof Date) {
+            dateTaken = exifDate.toISOString().split('T')[0];
+          }
+
+          // GPS → city name via reverse geocoding
+          if (exif.GPSLatitude && exif.GPSLongitude) {
+            // exifr returns decimal degrees directly
+            const lat = exif.latitude || exif.GPSLatitude;
+            const lng = exif.longitude || exif.GPSLongitude;
+            if (typeof lat === 'number' && typeof lng === 'number') {
+              try {
+                const geoRes = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${process.env.NEXT_PUBLIC_GOOGLE_API_KEY || ''}&result_type=locality`);
+                if (geoRes.ok) {
+                  const geoData = await geoRes.json();
+                  if (geoData.results?.[0]?.formatted_address) {
+                    location = geoData.results[0].formatted_address;
+                  }
+                }
+              } catch {
+                // Fallback: just show coordinates
+                location = `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+              }
+            }
+          }
+
+          // Camera
+          const parts = [exif.Make, exif.Model].filter(Boolean);
+          if (parts.length > 0) camera = parts.join(' ');
+          if (exif.LensModel) camera = (camera ? camera + ' · ' : '') + exif.LensModel;
+        }
+      } catch {
+        // EXIF parsing failed — use filename fallback
+        const dateMatch = file.name.match(/(\d{4})[-_]?(\d{2})[-_]?(\d{2})/);
+        if (dateMatch) dateTaken = `${dateMatch[1]}-${dateMatch[2]}-${dateMatch[3]}`;
+      }
+
+      setUploadProgress(`Compressing ${i + 1} of ${files.length}...`);
       const compressed = await compressImage(file, 1200, 0.7);
 
-      const dateMatch = file.name.match(/(\d{4})[-_]?(\d{2})[-_]?(\d{2})/);
-      const dateTaken = dateMatch ? `${dateMatch[1]}-${dateMatch[2]}-${dateMatch[3]}` : new Date().toISOString().split('T')[0];
-
+      setUploadProgress(`Uploading ${i + 1} of ${files.length}...`);
       await fetch('/api/photos', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           imageUrl: compressed, uploadedBy: currentMember.name,
-          dateTaken, albumId: uploadAlbum || null,
+          dateTaken, location, camera, albumId: uploadAlbum || null,
         }),
       });
+
+      // Auto-add to calendar if it's a new date
+      await fetch('/api/events', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: `📸 Photos uploaded${location ? ` from ${location}` : ''}`,
+          date: dateTaken, emoji: '📸',
+          description: `${currentMember.name} uploaded photos`,
+          createdBy: currentMember.name,
+        }),
+      }).catch(() => {});
     }
 
     setUploadProgress('');
