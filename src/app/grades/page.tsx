@@ -111,9 +111,9 @@ export default function GradesPage() {
         <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
           <Link href="/" className="text-white/40 hover:text-white/80 transition-colors text-sm">← Back to Hub</Link>
           <div className="flex items-center gap-3">
-            <span className="text-white/15 text-xs">{lastRefresh ? timeSince(lastRefresh) : ''}</span>
+            <span className="text-white/15 text-sm">{lastRefresh ? timeSince(lastRefresh) : ''}</span>
             <button onClick={() => { if (selectedStudent) fetchDetail(selectedStudent); else fetchOverview(); }}
-              className="px-3 py-1.5 rounded-lg bg-white/5 text-white/30 hover:text-white text-xs transition-all">
+              className="px-3 py-1.5 rounded-lg bg-white/5 text-white/30 hover:text-white text-sm transition-all">
               🔄 Refresh
             </button>
           </div>
@@ -138,7 +138,7 @@ export default function GradesPage() {
                     <h2 className="text-2xl font-bold">{student.name.split(' ')[0]}</h2>
                     {student.gpa && (
                       <div className="text-right">
-                        <span className="text-xs text-white/30">GPA</span>
+                        <span className="text-sm text-white/30">GPA</span>
                         <p className="text-3xl font-bold" style={{ color: student.gpa >= 3.0 ? '#22C55E' : student.gpa >= 2.0 ? '#FBBF24' : '#EF4444' }}>{student.gpa.toFixed(2)}</p>
                       </div>
                     )}
@@ -146,17 +146,17 @@ export default function GradesPage() {
                   <div className="space-y-1.5 mb-4">
                     {graded.sort((a, b) => GRADE_ORDER.indexOf(a.grade!) - GRADE_ORDER.indexOf(b.grade!)).map((c) => (
                       <div key={c.courseId} className="flex items-center gap-2">
-                        <span className="text-[10px] text-white/30 w-24 truncate">{cleanName(c.courseName).split(' - ')[0]}</span>
+                        <span className="text-sm text-white/30 w-24 truncate">{cleanName(c.courseName).split(' - ')[0]}</span>
                         <div className="flex-1 h-2 bg-white/5 rounded-full overflow-hidden">
                           <div className="h-full rounded-full" style={{ width: `${Math.min(c.score || 0, 100)}%`, background: getColor(c.grade) }} />
                         </div>
-                        <span className="text-xs font-bold w-6" style={{ color: getColor(c.grade) }}>{c.grade}</span>
+                        <span className="text-sm font-bold w-6" style={{ color: getColor(c.grade) }}>{c.grade}</span>
                       </div>
                     ))}
                   </div>
                   <div className="flex gap-2">
-                    {low.length > 0 && <span className="px-2 py-1 rounded-lg bg-red-500/15 text-red-400 text-[10px] font-bold">📉 {low.length} low</span>}
-                    {low.length === 0 && <span className="px-2 py-1 rounded-lg bg-emerald-500/15 text-emerald-400 text-[10px] font-bold">✅ On track</span>}
+                    {low.length > 0 && <span className="px-2 py-1 rounded-lg bg-red-500/15 text-red-400 text-sm font-bold">📉 {low.length} low</span>}
+                    {low.length === 0 && <span className="px-2 py-1 rounded-lg bg-emerald-500/15 text-emerald-400 text-sm font-bold">✅ On track</span>}
                   </div>
                 </motion.button>
               );
@@ -178,7 +178,7 @@ export default function GradesPage() {
                     const gpa = graded.length ? graded.reduce((s, c) => s + (GP[c.grade!] || 0), 0) / graded.length : null;
                     return gpa ? (
                       <div className="glass rounded-2xl px-6 py-3 text-center">
-                        <span className="text-xs text-white/30 block">GPA</span>
+                        <span className="text-sm text-white/30 block">GPA</span>
                         <span className="text-4xl font-bold" style={{ color: gpa >= 3.0 ? '#22C55E' : gpa >= 2.0 ? '#FBBF24' : '#EF4444' }}>{gpa.toFixed(2)}</span>
                       </div>
                     ) : null;
@@ -223,17 +223,17 @@ export default function GradesPage() {
                             </div>
                             <div className="flex-1 min-w-0">
                               <h3 className="font-bold text-sm">{subject}</h3>
-                              {teacher && <p className="text-white/30 text-xs">{teacher}</p>}
+                              {teacher && <p className="text-white/30 text-sm">{teacher}</p>}
                               <div className="flex items-center gap-2 mt-1.5">
                                 <div className="flex-1 h-2 bg-white/5 rounded-full overflow-hidden">
                                   <div className="h-full rounded-full" style={{ width: `${Math.min(course.score || 0, 100)}%`, background: getColor(course.grade) }} />
                                 </div>
-                                <span className="text-xs text-white/40">{course.score?.toFixed(1)}%</span>
+                                <span className="text-sm text-white/40">{course.score?.toFixed(1)}%</span>
                               </div>
                             </div>
                             <div className="flex gap-1">
-                              {missing.length > 0 && <span className="px-1.5 py-0.5 rounded bg-red-500/15 text-red-400 text-[9px]">⚠️{missing.length}</span>}
-                              {late.length > 0 && <span className="px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-400 text-[9px]">🕐{late.length}</span>}
+                              {missing.length > 0 && <span className="px-1.5 py-0.5 rounded bg-red-500/15 text-red-400 text-sm">⚠️{missing.length}</span>}
+                              {late.length > 0 && <span className="px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-400 text-sm">🕐{late.length}</span>}
                             </div>
                             <span className={`text-white/20 text-sm transition-transform ${isExpanded ? 'rotate-180' : ''}`}>▼</span>
                           </button>
@@ -248,14 +248,14 @@ export default function GradesPage() {
                                   return (b.gradedAt || '').localeCompare(a.gradedAt || '');
                                 }).map((a, j) => (
                                   <div key={j} className={`flex items-center gap-3 py-2 px-2 rounded-lg text-sm ${a.missing ? 'bg-red-500/5' : a.late ? 'bg-amber-500/5' : ''}`}>
-                                    <span className="text-xs w-10 text-right font-mono" style={{ color: a.missing ? '#EF4444' : a.score !== null ? getColor(a.grade) : '#4B5563' }}>
+                                    <span className="text-sm w-10 text-right font-mono" style={{ color: a.missing ? '#EF4444' : a.score !== null ? getColor(a.grade) : '#4B5563' }}>
                                       {a.missing ? 'MISS' : a.score !== null ? a.score.toFixed(0) : '—'}
                                     </span>
-                                    <span className="text-white/15 text-xs">/</span>
-                                    <span className="text-xs text-white/25 w-6">{a.pointsPossible}</span>
-                                    <span className={`flex-1 text-xs truncate ${a.missing ? 'text-red-400' : 'text-white/60'}`}>{a.name}</span>
-                                    {a.late && <span className="text-[9px] text-amber-400">LATE</span>}
-                                    {a.dueAt && <span className="text-[9px] text-white/15">{new Date(a.dueAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>}
+                                    <span className="text-white/15 text-sm">/</span>
+                                    <span className="text-sm text-white/25 w-6">{a.pointsPossible}</span>
+                                    <span className={`flex-1 text-sm truncate ${a.missing ? 'text-red-400' : 'text-white/60'}`}>{a.name}</span>
+                                    {a.late && <span className="text-sm text-amber-400">LATE</span>}
+                                    {a.dueAt && <span className="text-sm text-white/15">{new Date(a.dueAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>}
                                   </div>
                                 ))}
                               </div>
@@ -275,14 +275,14 @@ export default function GradesPage() {
                         {sortCourses(detail.courses).map((course, i) => (
                           <motion.div key={course.courseId} initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}
                             transition={{ delay: i * 0.08 }} className="flex items-center gap-3">
-                            <span className="text-xs text-white/40 w-28 truncate text-right">{cleanName(course.courseName).split(' - ')[0]}</span>
+                            <span className="text-sm text-white/40 w-28 truncate text-right">{cleanName(course.courseName).split(' - ')[0]}</span>
                             <div className="flex-1 relative">
                               <div className="h-8 bg-white/5 rounded-lg overflow-hidden">
                                 <motion.div className="h-full rounded-lg flex items-center justify-end pr-2"
                                   initial={{ width: 0 }} animate={{ width: `${course.score || 0}%` }}
                                   transition={{ duration: 0.8, delay: i * 0.1 }}
                                   style={{ background: `linear-gradient(90deg, ${getColor(course.grade)}40, ${getColor(course.grade)}80)` }}>
-                                  <span className="text-xs font-bold text-white">{course.score?.toFixed(1)}%</span>
+                                  <span className="text-sm font-bold text-white">{course.score?.toFixed(1)}%</span>
                                 </motion.div>
                               </div>
                               {[60, 70, 80, 90].map((t) => <div key={t} className="absolute top-0 h-full" style={{ left: `${t}%` }}><div className="w-px h-full bg-white/10" /></div>)}
@@ -291,7 +291,7 @@ export default function GradesPage() {
                           </motion.div>
                         ))}
                       </div>
-                      <div className="flex justify-end gap-4 mt-4 text-[10px] text-white/20"><span>60% D</span><span>70% C</span><span>80% B</span><span>90% A</span></div>
+                      <div className="flex justify-end gap-4 mt-4 text-sm text-white/20"><span>60% D</span><span>70% C</span><span>80% B</span><span>90% A</span></div>
                     </div>
 
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -307,9 +307,9 @@ export default function GradesPage() {
                           { label: 'Missing', value: String(totalMissing), sub: 'assignments', color: totalMissing > 0 ? '#EF4444' : '#22C55E' },
                         ].map((stat) => (
                           <div key={stat.label} className="glass rounded-xl p-4 text-center">
-                            <span className="text-xs text-white/30 block">{stat.label}</span>
+                            <span className="text-sm text-white/30 block">{stat.label}</span>
                             <span className="text-2xl font-bold block mt-1" style={{ color: stat.color }}>{stat.value}</span>
-                            <span className="text-[10px] text-white/20 truncate block">{stat.sub}</span>
+                            <span className="text-sm text-white/20 truncate block">{stat.sub}</span>
                           </div>
                         ));
                       })()}
@@ -400,15 +400,15 @@ export default function GradesPage() {
                       {/* Filters */}
                       <div className="glass rounded-xl p-4 space-y-3">
                         <div className="flex items-center gap-2 mb-1">
-                          <span className="text-xs text-white/40 font-medium">🔍 Filters</span>
+                          <span className="text-sm text-white/40 font-medium">🔍 Filters</span>
                           {(dateFilter !== 'all' || courseFilter !== 'all' || gradeFilter !== 'all' || categoryFilter !== 'all') && (
                             <button onClick={() => { setDateFilter('all'); setCourseFilter('all'); setGradeFilter('all'); setCategoryFilter('all'); }}
-                              className="text-[10px] text-red-400/60 hover:text-red-400">Clear all</button>
+                              className="text-sm text-red-400/60 hover:text-red-400">Clear all</button>
                           )}
                         </div>
                         <div className="flex gap-3 flex-wrap">
                           <div>
-                            <label className="text-[10px] text-white/25 block mb-1">Time Period</label>
+                            <label className="text-sm text-white/25 block mb-1">Time Period</label>
                             <select value={dateFilter} onChange={(e) => setDateFilter(e.target.value)}
                               className="bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white [&>option]:bg-gray-900">
                               <option value="all">All Time</option>
@@ -422,7 +422,7 @@ export default function GradesPage() {
                             </select>
                           </div>
                           <div>
-                            <label className="text-[10px] text-white/25 block mb-1">Course</label>
+                            <label className="text-sm text-white/25 block mb-1">Course</label>
                             <select value={courseFilter} onChange={(e) => setCourseFilter(e.target.value)}
                               className="bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white [&>option]:bg-gray-900">
                               <option value="all">All Courses</option>
@@ -430,7 +430,7 @@ export default function GradesPage() {
                             </select>
                           </div>
                           <div>
-                            <label className="text-[10px] text-white/25 block mb-1">Category</label>
+                            <label className="text-sm text-white/25 block mb-1">Category</label>
                             <select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)}
                               className="bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white [&>option]:bg-gray-900">
                               <option value="all">All Categories</option>
@@ -438,7 +438,7 @@ export default function GradesPage() {
                             </select>
                           </div>
                           <div>
-                            <label className="text-[10px] text-white/25 block mb-1">Status</label>
+                            <label className="text-sm text-white/25 block mb-1">Status</label>
                             <select value={gradeFilter} onChange={(e) => setGradeFilter(e.target.value)}
                               className="bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white [&>option]:bg-gray-900">
                               <option value="all">All</option>
@@ -462,7 +462,7 @@ export default function GradesPage() {
                           { label: 'Late', value: String(lateCount), color: lateCount > 0 ? '#F59E0B' : '#22C55E' },
                         ].map((s) => (
                           <div key={s.label} className="glass rounded-xl p-3 text-center">
-                            <span className="text-[10px] text-white/30 block">{s.label}</span>
+                            <span className="text-sm text-white/30 block">{s.label}</span>
                             <span className="text-xl font-bold" style={{ color: s.color }}>{s.value}</span>
                           </div>
                         ))}
@@ -486,7 +486,7 @@ export default function GradesPage() {
                               <span className="text-sm text-white/60">{c.name}</span>
                               <div className="text-right">
                                 <span className="text-sm font-bold" style={{ color: c.avg < 70 ? '#EF4444' : '#F59E0B' }}>{c.avg.toFixed(1)}%</span>
-                                {c.missing > 0 && <span className="text-[10px] text-red-400 ml-2">{c.missing} missing</span>}
+                                {c.missing > 0 && <span className="text-sm text-red-400 ml-2">{c.missing} missing</span>}
                               </div>
                             </div>
                           )) : <p className="text-emerald-400 text-sm">✅ All good!</p>}
@@ -503,12 +503,12 @@ export default function GradesPage() {
                               const height = (avg / maxWeekAvg) * 100;
                               return (
                                 <div key={week} className="flex-1 flex flex-col items-center gap-1">
-                                  <span className="text-[9px] text-white/30">{Math.round(avg)}%</span>
+                                  <span className="text-sm text-white/30">{Math.round(avg)}%</span>
                                   <motion.div className="w-full rounded-t-lg min-h-[4px]"
                                     initial={{ height: 0 }} animate={{ height: `${height}%` }}
                                     transition={{ duration: 0.5 }}
                                     style={{ background: avg >= 80 ? '#22C55E' : avg >= 70 ? '#FBBF24' : '#EF4444' }} />
-                                  <span className="text-[8px] text-white/15 -rotate-45 origin-top-left whitespace-nowrap">
+                                  <span className="text-sm text-white/15 -rotate-45 origin-top-left whitespace-nowrap">
                                     {new Date(week).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                                   </span>
                                 </div>
@@ -524,18 +524,18 @@ export default function GradesPage() {
                         <div className="space-y-3">
                           {coursePerf.map((c) => (
                             <div key={c.name} className="flex items-center gap-3">
-                              <span className="text-xs text-white/40 w-28 truncate text-right">{c.name}</span>
+                              <span className="text-sm text-white/40 w-28 truncate text-right">{c.name}</span>
                               <div className="flex-1 h-6 bg-white/5 rounded-lg overflow-hidden relative">
                                 <motion.div className="h-full rounded-lg"
                                   initial={{ width: 0 }} animate={{ width: `${c.avg}%` }}
                                   transition={{ duration: 0.6 }}
                                   style={{ background: c.avg >= 80 ? '#22C55E80' : c.avg >= 70 ? '#FBBF2480' : '#EF444480' }} />
-                                <span className="absolute inset-0 flex items-center justify-center text-xs font-bold text-white">
+                                <span className="absolute inset-0 flex items-center justify-center text-sm font-bold text-white">
                                   {c.avg.toFixed(1)}%
                                 </span>
                               </div>
-                              <span className="text-[10px] text-white/20 w-12">{c.count} asgn</span>
-                              {c.missing > 0 && <span className="text-[10px] text-red-400">⚠️{c.missing}</span>}
+                              <span className="text-sm text-white/20 w-12">{c.count} asgn</span>
+                              {c.missing > 0 && <span className="text-sm text-red-400">⚠️{c.missing}</span>}
                             </div>
                           ))}
                         </div>
@@ -553,15 +553,15 @@ export default function GradesPage() {
                               const weight = catAssignments[0]?.assignmentGroupWeight || 0;
                               return (
                                 <div key={cat} className="flex items-center gap-3">
-                                  <span className="text-xs text-white/40 w-40 truncate text-right">{cat}{weight > 0 ? ` (${weight}%)` : ''}</span>
+                                  <span className="text-sm text-white/40 w-40 truncate text-right">{cat}{weight > 0 ? ` (${weight}%)` : ''}</span>
                                   <div className="flex-1 h-6 bg-white/5 rounded-lg overflow-hidden relative">
                                     <motion.div className="h-full rounded-lg"
                                       initial={{ width: 0 }} animate={{ width: `${avg}%` }}
                                       transition={{ duration: 0.6 }}
                                       style={{ background: avg >= 80 ? '#22C55E80' : avg >= 70 ? '#FBBF2480' : '#EF444480' }} />
-                                    <span className="absolute inset-0 flex items-center justify-center text-xs font-bold text-white">{avg.toFixed(1)}%</span>
+                                    <span className="absolute inset-0 flex items-center justify-center text-sm font-bold text-white">{avg.toFixed(1)}%</span>
                                   </div>
-                                  <span className="text-[10px] text-white/20 w-8">{catAssignments.length}</span>
+                                  <span className="text-sm text-white/20 w-8">{catAssignments.length}</span>
                                 </div>
                               );
                             })}
@@ -590,7 +590,7 @@ export default function GradesPage() {
                               return (
                                 <div key={period.id} className="p-4 bg-white/[0.02] rounded-xl">
                                   <h4 className="font-bold text-sm mb-1">{period.title}</h4>
-                                  <p className="text-[10px] text-white/20 mb-3">
+                                  <p className="text-sm text-white/20 mb-3">
                                     {new Date(period.start_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} – {new Date(period.end_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                                   </p>
                                   <div className="grid grid-cols-2 gap-2 text-center">
@@ -598,19 +598,19 @@ export default function GradesPage() {
                                       <span className="text-2xl font-bold" style={{ color: semAvg >= 80 ? '#22C55E' : semAvg >= 70 ? '#FBBF24' : '#EF4444' }}>
                                         {semAvg > 0 ? semAvg.toFixed(1) + '%' : '—'}
                                       </span>
-                                      <span className="text-[10px] text-white/25 block">Average</span>
+                                      <span className="text-sm text-white/25 block">Average</span>
                                     </div>
                                     <div>
                                       <span className="text-2xl font-bold text-white/50">{semGraded.length}</span>
-                                      <span className="text-[10px] text-white/25 block">Graded</span>
+                                      <span className="text-sm text-white/25 block">Graded</span>
                                     </div>
                                     <div>
                                       <span className="text-lg font-bold" style={{ color: semMissing > 0 ? '#EF4444' : '#22C55E' }}>{semMissing}</span>
-                                      <span className="text-[10px] text-white/25 block">Missing</span>
+                                      <span className="text-sm text-white/25 block">Missing</span>
                                     </div>
                                     <div>
                                       <span className="text-lg font-bold text-emerald-400">{semPerfect}</span>
-                                      <span className="text-[10px] text-white/25 block">Perfect</span>
+                                      <span className="text-sm text-white/25 block">Perfect</span>
                                     </div>
                                   </div>
                                 </div>
@@ -633,12 +633,12 @@ export default function GradesPage() {
                             const maxBucket = Math.max(...buckets, 1);
                             return buckets.map((count, i) => (
                               <div key={i} className="flex-1 flex flex-col items-center gap-1">
-                                <span className="text-[9px] text-white/20">{count}</span>
+                                <span className="text-sm text-white/20">{count}</span>
                                 <motion.div className="w-full rounded-t-lg min-h-[2px]"
                                   initial={{ height: 0 }} animate={{ height: `${(count / maxBucket) * 100}%` }}
                                   transition={{ duration: 0.4, delay: i * 0.05 }}
                                   style={{ background: i >= 9 ? '#22C55E' : i >= 7 ? '#60A5FA' : i >= 6 ? '#FBBF24' : '#EF4444' }} />
-                                <span className="text-[8px] text-white/20">{i * 10}-{i * 10 + 9}</span>
+                                <span className="text-sm text-white/20">{i * 10}-{i * 10 + 9}</span>
                               </div>
                             ));
                           })()}
@@ -651,7 +651,7 @@ export default function GradesPage() {
                           <h3 className="text-sm font-bold text-white/50">All Assignments ({filtered.length})</h3>
                         </div>
                         <div className="max-h-[400px] overflow-y-auto">
-                          <table className="w-full text-xs">
+                          <table className="w-full text-sm">
                             <thead className="sticky top-0 bg-[#0a0a1f]">
                               <tr className="text-white/30 border-b border-white/5">
                                 <th className="text-left py-2 px-3">Course</th>
@@ -706,8 +706,8 @@ export default function GradesPage() {
                             <div key={i} className="flex items-center gap-3 py-2">
                               <span className="text-red-400">❌</span>
                               <span className="text-sm flex-1">{a.name}</span>
-                              <span className="text-xs text-white/20">{a.pointsPossible} pts</span>
-                              {a.dueAt && <span className="text-xs text-red-400/50">{new Date(a.dueAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>}
+                              <span className="text-sm text-white/20">{a.pointsPossible} pts</span>
+                              {a.dueAt && <span className="text-sm text-red-400/50">{new Date(a.dueAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>}
                             </div>
                           ))}
                         </div>
@@ -728,7 +728,7 @@ export default function GradesPage() {
                           <div key={i} className="flex items-center gap-3 py-2">
                             <span className="font-bold text-sm w-6" style={{ color: getColor(c.grade) }}>{c.grade}</span>
                             <span className="text-sm flex-1 text-white/60">{cleanName(c.courseName)}</span>
-                            <span className="text-xs text-white/25">{c.score?.toFixed(1)}%</span>
+                            <span className="text-sm text-white/25">{c.score?.toFixed(1)}%</span>
                           </div>
                         ))}
                       </div>

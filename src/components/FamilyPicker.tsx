@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useFamilyMember } from './FamilyContext';
 
@@ -18,11 +18,11 @@ export default function FamilyPicker() {
   const [requirePin, setRequirePin] = useState(false);
 
   // Load requirePin setting
-  useState(() => {
+  useEffect(() => {
     fetch('/api/admin').then((r) => r.json()).then((data) => {
       if (data.config?.requirePin) setRequirePin(true);
     }).catch(() => {});
-  });
+  }, []);
 
   const handleAdd = async () => {
     if (!newName.trim()) return;
