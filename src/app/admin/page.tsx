@@ -10,6 +10,7 @@ interface FamilyMember {
   emoji: string;
   color: string;
   landingMode: string;
+  pin: string | null;
 }
 
 interface HubConfig {
@@ -21,6 +22,8 @@ interface HubConfig {
   roomMappingsJson: string | null;
   appVisibilityJson?: string | null;
   locationsJson?: string | null;
+  appOverridesJson?: string | null;
+  requirePin?: number | null;
 }
 
 interface RoomMapping {
@@ -207,25 +210,36 @@ export default function AdminPage() {
 
           <div className="space-y-3 mb-6">
             {members.map((m) => (
-              <div key={m.id} className="flex items-center gap-4 p-4 bg-white/[0.02] rounded-xl">
-                <span className="text-2xl">{m.emoji}</span>
-                <span className="font-medium flex-1" style={{ color: m.color }}>{m.name}</span>
-                <div className="flex items-center gap-2">
-                  <span className="text-[10px] text-white/25">Landing:</span>
-                  <button
-                    onClick={() => apiCall({ updateMember: { id: m.id, landingMode: m.landingMode === '3d-house' ? 'classic' : '3d-house' } })}
-                    className={`px-3 py-1 rounded-lg text-[11px] font-medium transition-all ${
-                      m.landingMode === '3d-house'
-                        ? 'bg-purple-500/20 text-purple-400 border border-purple-500/30'
-                        : 'bg-white/5 text-white/30 border border-white/10'
-                    }`}
-                  >
-                    {m.landingMode === '3d-house' ? '🛸 3D House' : '📋 Classic'}
-                  </button>
+              <div key={m.id} className="p-4 bg-white/[0.02] rounded-xl space-y-3">
+                <div className="flex items-center gap-4">
+                  <span className="text-2xl">{m.emoji}</span>
+                  <span className="font-medium flex-1" style={{ color: m.color }}>{m.name}</span>
+                  <div className="w-5 h-5 rounded-full" style={{ backgroundColor: m.color }} />
+                  <button onClick={() => handleDeleteMember(m.id)}
+                    className="text-white/20 hover:text-red-400 text-sm transition-colors">Remove</button>
                 </div>
-                <div className="w-5 h-5 rounded-full" style={{ backgroundColor: m.color }} />
-                <button onClick={() => handleDeleteMember(m.id)}
-                  className="text-white/20 hover:text-red-400 text-sm transition-colors">Remove</button>
+                <div className="flex items-center gap-4 flex-wrap">
+                  {/* PIN */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] text-white/25">PIN:</span>
+                    <input type="text" maxLength={4} placeholder="None" defaultValue={m.pin || ''}
+                      onBlur={(e) => apiCall({ updateMember: { id: m.id, pin: e.target.value || null } })}
+                      className="w-16 bg-white/5 border border-white/10 rounded-lg px-2 py-1 text-xs text-white text-center tracking-widest placeholder-white/15 focus:outline-none" />
+                  </div>
+                  {/* Landing mode */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] text-white/25">Landing:</span>
+                    <button
+                      onClick={() => apiCall({ updateMember: { id: m.id, landingMode: m.landingMode === '3d-house' ? 'classic' : '3d-house' } })}
+                      className={`px-3 py-1 rounded-lg text-[11px] font-medium transition-all ${
+                        m.landingMode === '3d-house'
+                          ? 'bg-purple-500/20 text-purple-400 border border-purple-500/30'
+                          : 'bg-white/5 text-white/30 border border-white/10'
+                      }`}>
+                      {m.landingMode === '3d-house' ? '🛸 3D House' : '📋 Classic'}
+                    </button>
+                  </div>
+                </div>
               </div>
             ))}
           </div>
@@ -328,32 +342,94 @@ export default function AdminPage() {
           </div>
         </section>
 
-        {/* ====== FONT SELECTION ====== */}
+        {/* ====== FONT + PIN SETTINGS ====== */}
         <section className="glass rounded-2xl p-6">
-          <h2 className="text-xl font-bold mb-6">🔤 Font</h2>
-          <p className="text-white/40 text-sm mb-4">Choose the primary font for the hub and all apps</p>
+          <h2 className="text-xl font-bold mb-6">⚙️ Settings</h2>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {FONT_OPTIONS.map((font) => (
-              <button key={font.value} onClick={() => setConfig((c) => c ? { ...c, fontPrimary: font.value } : c)}
-                className={`text-left p-4 rounded-xl transition-all ${
-                  config?.fontPrimary === font.value
-                    ? 'bg-purple-500/15 border border-purple-500/30 ring-1 ring-purple-500/20'
-                    : 'bg-white/[0.02] border border-white/5 hover:bg-white/[0.05]'
-                }`}>
-                <span className="text-lg font-bold" style={{ fontFamily: `"${font.value}", sans-serif` }}>{font.label}</span>
-                <span className="text-xs text-white/30 ml-2">{font.preview}</span>
-                <p className="mt-1 text-sm text-white/50" style={{ fontFamily: `"${font.value}", sans-serif` }}>
-                  The quick brown fox jumps over the lazy dog
-                </p>
+          <div className="space-y-6">
+            {/* Font picker */}
+            <div>
+              <label className="text-xs text-white/30 block mb-2">Font</label>
+              <select value={config?.fontPrimary || 'Outfit'}
+                onChange={(e) => { setConfig((c) => c ? { ...c, fontPrimary: e.target.value } : c); }}
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none [&>option]:bg-gray-900"
+                style={{ fontFamily: `"${config?.fontPrimary || 'Outfit'}", sans-serif` }}>
+                {FONT_OPTIONS.map((f) => (
+                  <option key={f.value} value={f.value}>{f.label} — {f.preview}</option>
+                ))}
+              </select>
+              <p className="mt-2 text-sm text-white/40" style={{ fontFamily: `"${config?.fontPrimary || 'Outfit'}", sans-serif` }}>
+                Preview: The quick brown fox jumps over the lazy dog
+              </p>
+            </div>
+
+            {/* Require PIN toggle */}
+            <div className="flex items-center justify-between p-4 bg-white/[0.02] rounded-xl">
+              <div>
+                <h3 className="text-sm font-medium">🔐 Require PIN to log in</h3>
+                <p className="text-[10px] text-white/25 mt-0.5">When on, family members must enter their 4-digit PIN</p>
+              </div>
+              <button onClick={() => {
+                const current = config?.requirePin ? 1 : 0;
+                apiCall({ config: { requirePin: current ? 0 : 1 } });
+              }}
+                className={`w-11 h-6 rounded-full transition-colors relative ${
+                  config?.requirePin ? 'bg-emerald-500' : 'bg-white/15'}`}>
+                <span className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-transform ${
+                  config?.requirePin ? 'left-6' : 'left-1'}`} />
               </button>
-            ))}
-          </div>
+            </div>
 
-          <button onClick={handleSaveConfig} disabled={saving}
-            className="mt-4 px-6 py-3 rounded-xl bg-gradient-to-r from-purple-500 to-pink-500 text-white font-medium disabled:opacity-30">
-            {saving ? 'Saving...' : 'Save Font Choice'}
-          </button>
+            <button onClick={handleSaveConfig} disabled={saving}
+              className="px-6 py-3 rounded-xl bg-gradient-to-r from-purple-500 to-pink-500 text-white font-medium disabled:opacity-30">
+              {saving ? 'Saving...' : 'Save Settings'}
+            </button>
+          </div>
+        </section>
+
+        {/* ====== CARD EDITOR ====== */}
+        <section className="glass rounded-2xl p-6">
+          <h2 className="text-xl font-bold mb-2">🎨 Card Names & Descriptions</h2>
+          <p className="text-white/40 text-sm mb-6">Customize how apps appear on the home page</p>
+
+          <div className="space-y-4">
+            {FAMILY_APPS.map((app) => {
+              let overrides: Record<string, Record<string, string>> = {};
+              if (config?.appOverridesJson) {
+                try { overrides = JSON.parse(config!.appOverridesJson!); } catch {}
+              }
+              const o = overrides[app.id] || {};
+
+              return (
+                <div key={app.id} className="p-4 bg-white/[0.02] rounded-xl space-y-3">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-xl">{app.icon}</span>
+                    <span className="text-sm text-white/50">{app.id}</span>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-[10px] text-white/25 block mb-1">Card Name</label>
+                      <input type="text" defaultValue={o.name || app.name} placeholder={app.name}
+                        onBlur={(e) => {
+                          const updated = { ...overrides, [app.id]: { ...o, name: e.target.value.trim() || app.name } };
+                          apiCall({ config: { appOverridesJson: JSON.stringify(updated) } });
+                        }}
+                        className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-white/20 focus:outline-none" />
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-white/25 block mb-1">Tagline</label>
+                      <input type="text" defaultValue={o.tagline || app.tagline} placeholder={app.tagline}
+                        onBlur={(e) => {
+                          const updated = { ...overrides, [app.id]: { ...o, tagline: e.target.value.trim() || app.tagline } };
+                          apiCall({ config: { appOverridesJson: JSON.stringify(updated) } });
+                        }}
+                        className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-white/20 focus:outline-none" />
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </section>
 
         {/* ====== LANDING PAGE TEXT ====== */}

@@ -15,6 +15,8 @@ interface HubConfig {
   heroIcon: string;
   fontPrimary: string;
   appVisibilityJson?: string | null;
+  appOverridesJson?: string | null;
+  requirePin?: number;
 }
 
 export default function Home() {
@@ -52,7 +54,18 @@ export default function Home() {
   if (config?.appVisibilityJson) {
     try { Object.assign(visibility, JSON.parse(config.appVisibilityJson!)); } catch {}
   }
-  const visibleApps = FAMILY_APPS.filter((a) => visibility[a.id] !== false);
+  // App overrides (custom names/descriptions from admin)
+  const overrides: Record<string, { name?: string; tagline?: string; description?: string }> = {};
+  if (config?.appOverridesJson) {
+    try { Object.assign(overrides, JSON.parse(config.appOverridesJson)); } catch {}
+  }
+
+  const visibleApps = FAMILY_APPS.filter((a) => visibility[a.id] !== false).map((a) => ({
+    ...a,
+    name: overrides[a.id]?.name || a.name,
+    tagline: overrides[a.id]?.tagline || a.tagline,
+    description: overrides[a.id]?.description || a.description,
+  }));
   const liveApps = visibleApps.filter((a) => a.status === 'live');
   const comingSoon = visibleApps.filter((a) => a.status === 'coming-soon');
 
@@ -116,14 +129,15 @@ export default function Home() {
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] rounded-full bg-purple-500/5 blur-[120px] pointer-events-none" />
 
           <motion.h1 initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-            className="text-5xl md:text-7xl font-bold text-center leading-none mb-2">
+            className="text-6xl md:text-8xl font-bold text-center leading-none mb-3"
+            style={{ textShadow: '0 0 60px rgba(168, 85, 247, 0.15), 0 0 120px rgba(236, 72, 153, 0.08)' }}>
             <span className="gradient-text bg-gradient-to-r from-purple-400 via-pink-400 to-blue-400">
               {config?.heroTitle || "O'Brien"}
             </span>
           </motion.h1>
 
           <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }}
-            className="text-sm text-white/25 tracking-[0.3em] uppercase font-light mb-4">
+            className="text-base text-white/30 tracking-[0.3em] uppercase font-light mb-4">
             {config?.heroSubtitle || 'Family Hub'}
           </motion.p>
 
@@ -145,7 +159,7 @@ export default function Home() {
                   href={app.url}
                   target={app.url.startsWith('http') ? '_blank' : undefined}
                   rel={app.url.startsWith('http') ? 'noopener noreferrer' : undefined}
-                  className="block rounded-2xl overflow-hidden group relative aspect-square border border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.06] hover:border-white/[0.15] transition-all duration-300"
+                  className="block rounded-2xl overflow-hidden group relative aspect-square border border-white/[0.12] bg-white/[0.03] hover:bg-white/[0.07] hover:border-white/[0.25] transition-all duration-300"
                   style={{ boxShadow: `0 0 0px ${app.accentColor}00` }}
                   whileHover={{ scale: 1.03, y: -3, boxShadow: `0 8px 40px ${app.accentColor}20` }}
                   transition={{ type: 'spring', stiffness: 300, damping: 20 }}>
@@ -180,7 +194,7 @@ export default function Home() {
                 initial={{ opacity: 0, y: 40 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5, delay: (liveApps.length + i) * 0.08 }}>
-                <div className="rounded-2xl overflow-hidden aspect-square border border-white/[0.04] bg-white/[0.01] opacity-40">
+                <div className="rounded-2xl overflow-hidden aspect-square border border-white/[0.08] bg-white/[0.02] opacity-40">
                   <div className="h-1 bg-white/5" />
                   <div className="p-5 flex flex-col h-full">
                     <span className="text-4xl mb-3 grayscale">{app.icon}</span>
@@ -196,7 +210,7 @@ export default function Home() {
             <motion.div initial={{ opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: FAMILY_APPS.length * 0.08 }}>
               <Link href="/admin">
-                <div className="rounded-2xl overflow-hidden aspect-square border border-white/[0.04] bg-white/[0.01] group hover:bg-white/[0.04] hover:border-white/[0.1] transition-all cursor-pointer">
+                <div className="rounded-2xl overflow-hidden aspect-square border border-white/[0.08] bg-white/[0.02] group hover:bg-white/[0.05] hover:border-white/[0.15] transition-all cursor-pointer">
                   <div className="h-1 bg-white/5" />
                   <div className="p-5 flex flex-col h-full">
                     <span className="text-4xl mb-3">⚙️</span>
