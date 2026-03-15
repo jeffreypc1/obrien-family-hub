@@ -402,6 +402,29 @@ export default function AdminPage() {
               </button>
             </div>
 
+            {/* Chore payment limits */}
+            <div className="p-4 bg-white/[0.02] rounded-xl space-y-3">
+              <h3 className="text-sm font-medium">💰 Chore Payment Limits</h3>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-[10px] text-white/25 block mb-1">Minimum payout ($)</label>
+                  <input type="number" step="1" min="1" defaultValue="20" id="admin-min-payout"
+                    className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none" />
+                </div>
+                <div>
+                  <label className="text-[10px] text-white/25 block mb-1">Max active task amount ($)</label>
+                  <input type="number" step="1" min="1" defaultValue="20" id="admin-max-active"
+                    className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none" />
+                </div>
+              </div>
+              <p className="text-[9px] text-white/15">Min payout: won&apos;t show Pay button until earned this much. Max active: kids can&apos;t grab more tasks until under this limit.</p>
+              <button onClick={() => {
+                const mp = (document.getElementById('admin-min-payout') as HTMLInputElement).value;
+                const ma = (document.getElementById('admin-max-active') as HTMLInputElement).value;
+                apiCall({ config: { minPayout: parseFloat(mp) || 20, maxActiveAmount: parseFloat(ma) || 20 } });
+              }} className="px-4 py-2 rounded-lg bg-white/5 text-white/40 text-xs hover:text-white">Save Limits</button>
+            </div>
+
             {/* Change admin PIN */}
             <div className="p-4 bg-white/[0.02] rounded-xl">
               <h3 className="text-sm font-medium mb-2">🔑 Admin Panel PIN</h3>

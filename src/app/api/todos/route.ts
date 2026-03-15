@@ -68,6 +68,7 @@ export async function PUT(request: NextRequest) {
     updates.paidStatus = paidStatus;
     if (paidStatus === 'paid') updates.paidAt = new Date().toISOString();
   }
+  if (body.assignedTo !== undefined) updates.assignedTo = body.assignedTo;
   if (title !== undefined) updates.title = title;
   if (description !== undefined) updates.description = description;
   if (dueDate !== undefined) updates.dueDate = dueDate;

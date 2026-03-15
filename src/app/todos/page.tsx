@@ -31,7 +31,7 @@ const COLUMNS = [
 export default function TodosPage() {
   const { currentMember, members, setShowPicker } = useFamilyMember();
   const [todos, setTodos] = useState<TodoItem[]>([]);
-  const [tab, setTab] = useState<'mine' | 'assigned' | 'archived'>('mine');
+  const [tab, setTab] = useState<'mine' | 'grab' | 'assigned' | 'archived'>('mine');
   const [showNew, setShowNew] = useState(false);
   const [newTitle, setNewTitle] = useState('');
   const [newDesc, setNewDesc] = useState('');
@@ -40,6 +40,9 @@ export default function TodosPage() {
   const [newAmount, setNewAmount] = useState('');
   const [showEarnings, setShowEarnings] = useState(false);
   const [dragItem, setDragItem] = useState<string | null>(null);
+  const [minPayout, setMinPayout] = useState(20);
+  const [maxActive, setMaxActive] = useState(20);
+  const [allTodos, setAllTodos] = useState<TodoItem[]>([]);
   const [dragOverCol, setDragOverCol] = useState<string | null>(null);
 
   const fetchTodos = useCallback(async () => {
@@ -48,11 +51,24 @@ export default function TodosPage() {
     const myTodos = await myRes.json();
     const assignedRes = await fetch(`/api/todos?createdBy=${encodeURIComponent(currentMember.name)}`);
     const assignedTodos = await assignedRes.json();
-    const all = [...myTodos];
-    for (const t of assignedTodos) {
-      if (!all.find((a: TodoItem) => a.id === t.id)) all.push(t);
+    // Also fetch unclaimed tasks
+    const unclaimedRes = await fetch('/api/todos?assignedTo=unclaimed');
+    const unclaimedTodos = await unclaimedRes.json();
+    // Also fetch ALL todos for earnings dashboard
+    const allRes = await fetch('/api/todos');
+    setAllTodos(await allRes.json());
+
+    const combined = [...myTodos];
+    for (const t of [...assignedTodos, ...unclaimedTodos]) {
+      if (!combined.find((a: TodoItem) => a.id === t.id)) combined.push(t);
     }
-    setTodos(all);
+    setTodos(combined);
+
+    // Load config
+    fetch('/api/admin').then((r) => r.json()).then((data) => {
+      if (data.config?.minPayout) setMinPayout(Number(data.config.minPayout) || 20);
+      if (data.config?.maxActiveAmount) setMaxActive(Number(data.config.maxActiveAmount) || 20);
+    }).catch(() => {});
   }, [currentMember]);
 
   useEffect(() => { fetchTodos(); }, [fetchTodos]);
@@ -84,6 +100,43 @@ export default function TodosPage() {
     });
     fetchTodos();
   };
+
+  const handleClaimTask = async (id: string) => {
+    if (!currentMember) return;
+    // Check active cap
+    if (myActiveAmount >= maxActive) {
+      alert(`You have $${myActiveAmount.toFixed(2)} in active tasks. Complete some before taking more! (Limit: $${maxActive})`);
+      return;
+    }
+    await fetch('/api/todos', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, assignedTo: currentMember.name }),
+    });
+    fetchTodos();
+  };
+
+  // Calculate active (unpaid) task amounts for current member
+  const myActiveAmount = todos.filter((t) =>
+    t.assignedTo === currentMember?.name &&
+    t.dollarAmount &&
+    t.status !== 'archived' &&
+    t.paidStatus !== 'paid'
+  ).reduce((s, t) => s + (t.dollarAmount || 0), 0);
+
+  // Calculate pending payout (done but unpaid)
+  const myPendingPayout = todos.filter((t) =>
+    t.assignedTo === currentMember?.name &&
+    t.dollarAmount &&
+    (t.status === 'done' || t.status === 'archived') &&
+    t.paidStatus !== 'paid'
+  ).reduce((s, t) => s + (t.dollarAmount || 0), 0);
+
+  const payoutProgress = Math.min((myPendingPayout / minPayout) * 100, 100);
+  const canGetPaid = myPendingPayout >= minPayout;
+
+  // Unclaimed tasks
+  const unclaimedTasks = todos.filter((t) => t.assignedTo === 'unclaimed' && t.status !== 'archived');
 
   const handleArchiveDone = async () => {
     const doneTasks = todos.filter((t) => t.status === 'done' && (t.assignedTo === currentMember?.name || t.createdBy === currentMember?.name));
@@ -198,7 +251,7 @@ export default function TodosPage() {
                 <h3 className="text-sm font-medium text-white/40 uppercase tracking-wider mb-4">💰 Earnings Tracker</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {members.map((m) => {
-                    const memberTasks = todos.filter((t) => t.assignedTo === m.name && t.dollarAmount);
+                    const memberTasks = allTodos.filter((t) => t.assignedTo === m.name && t.dollarAmount);
                     const earned = memberTasks.filter((t) => t.status === 'done' || t.status === 'archived').reduce((s, t) => s + (t.dollarAmount || 0), 0);
                     const pending = memberTasks.filter((t) => (t.status === 'done' || t.status === 'archived') && t.paidStatus !== 'paid').reduce((s, t) => s + (t.dollarAmount || 0), 0);
                     const paid = memberTasks.filter((t) => t.paidStatus === 'paid').reduce((s, t) => s + (t.dollarAmount || 0), 0);
@@ -231,9 +284,20 @@ export default function TodosPage() {
                             </div>
                           )}
                         </div>
-                        {pending > 0 && currentMember?.name !== m.name && (
+                        {/* Payout progress */}
+                        {pending > 0 && (
+                          <div className="mt-3">
+                            <div className="h-2 bg-white/5 rounded-full overflow-hidden mb-1">
+                              <div className={`h-full rounded-full ${pending >= minPayout ? 'bg-emerald-500' : 'bg-amber-500'}`}
+                                style={{ width: `${Math.min((pending / minPayout) * 100, 100)}%` }} />
+                            </div>
+                            <span className="text-[9px] text-white/20">
+                              {pending >= minPayout ? '✅ Ready for payout!' : `$${(minPayout - pending).toFixed(2)} until payout minimum`}
+                            </span>
+                          </div>
+                        )}
+                        {pending >= minPayout && currentMember?.name !== m.name && (
                           <button onClick={() => {
-                            // Mark all unpaid done tasks as paid for this member
                             memberTasks.filter((t) => (t.status === 'done' || t.status === 'archived') && t.paidStatus !== 'paid')
                               .forEach((t) => {
                                 fetch('/api/todos', { method: 'PUT', headers: { 'Content-Type': 'application/json' },
@@ -241,8 +305,8 @@ export default function TodosPage() {
                               });
                             setTimeout(fetchTodos, 500);
                           }}
-                            className="w-full mt-3 py-2 rounded-xl bg-emerald-500/15 text-emerald-400 text-xs font-medium border border-emerald-500/20 hover:bg-emerald-500/25 transition-all">
-                            ✅ Mark ${pending.toFixed(2)} as Paid via Step
+                            className="w-full mt-2 py-2 rounded-xl bg-emerald-500/15 text-emerald-400 text-xs font-medium border border-emerald-500/20 hover:bg-emerald-500/25 transition-all">
+                            💸 Pay ${pending.toFixed(2)} via Step
                           </button>
                         )}
                       </div>
@@ -255,13 +319,45 @@ export default function TodosPage() {
         </AnimatePresence>
 
         {/* Tabs */}
-        <div className="flex gap-1 bg-white/5 rounded-xl p-1 mb-8 max-w-md">
+        {/* Payout progress bar */}
+        {myPendingPayout > 0 && (
+          <div className="glass rounded-2xl p-4 mb-6">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs text-white/40">💰 Payout progress</span>
+              <span className={`text-xs font-bold ${canGetPaid ? 'text-emerald-400' : 'text-amber-400'}`}>
+                ${myPendingPayout.toFixed(2)} / ${minPayout.toFixed(2)}
+              </span>
+            </div>
+            <div className="h-3 bg-white/5 rounded-full overflow-hidden">
+              <motion.div
+                className={`h-full rounded-full ${canGetPaid ? 'bg-gradient-to-r from-emerald-500 to-green-400' : 'bg-gradient-to-r from-amber-500 to-yellow-400'}`}
+                initial={{ width: 0 }} animate={{ width: `${payoutProgress}%` }} transition={{ duration: 0.8 }}
+              />
+            </div>
+            {canGetPaid ? (
+              <p className="text-emerald-400 text-xs mt-2 font-medium">🎉 Ready for payout! Ask a parent to send via Step.</p>
+            ) : (
+              <p className="text-white/25 text-xs mt-2">${(minPayout - myPendingPayout).toFixed(2)} more to reach payout minimum</p>
+            )}
+          </div>
+        )}
+
+        {/* Active cap warning */}
+        {myActiveAmount > 0 && (
+          <div className="flex items-center gap-3 mb-4 px-4 py-2 rounded-xl bg-white/[0.02] border border-white/5">
+            <span className="text-xs text-white/30">Active tasks: <strong className={myActiveAmount >= maxActive ? 'text-red-400' : 'text-white/50'}>${myActiveAmount.toFixed(2)}</strong> / ${maxActive.toFixed(2)} limit</span>
+            {myActiveAmount >= maxActive && <span className="text-[10px] text-red-400/70">⚠️ Complete tasks before claiming more</span>}
+          </div>
+        )}
+
+        <div className="flex gap-1 bg-white/5 rounded-xl p-1 mb-8 max-w-xl">
           {([
             { key: 'mine' as const, label: '📋 My Tasks' },
+            { key: 'grab' as const, label: `🏷️ Grab Tasks${unclaimedTasks.length > 0 ? ` (${unclaimedTasks.length})` : ''}` },
             { key: 'assigned' as const, label: '👥 Assigned by Me' },
-            { key: 'archived' as const, label: `📦 Archived (${archivedTodos.length})` },
+            { key: 'archived' as const, label: `📦 Archived` },
           ]).map((t) => (
-            <button key={t.key} onClick={() => setTab(t.key)}
+            <button key={t.key} onClick={() => setTab(t.key as typeof tab)}
               className={`flex-1 py-2.5 rounded-lg text-sm font-medium transition-all ${
                 tab === t.key ? 'bg-white/10 text-white' : 'text-white/40 hover:text-white/70'}`}>
               {t.label}
@@ -293,6 +389,7 @@ export default function TodosPage() {
                   <select value={newAssignTo} onChange={(e) => setNewAssignTo(e.target.value)}
                     className="bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white text-sm focus:outline-none [&>option]:bg-gray-900">
                     <option value="">Myself</option>
+                    <option value="unclaimed">🏷️ Unclaimed (anyone can grab)</option>
                     {members.filter((m) => m.name !== currentMember.name).map((m) => (
                       <option key={m.id} value={m.name}>{m.emoji} {m.name}</option>
                     ))}
@@ -318,7 +415,7 @@ export default function TodosPage() {
         </AnimatePresence>
 
         {/* ====== KANBAN BOARD (mine / assigned tabs) ====== */}
-        {tab !== 'archived' && (
+        {tab !== 'archived' && tab !== 'grab' && (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
             {COLUMNS.map((col) => {
               const items = getColumnItems(col.id);
@@ -405,6 +502,59 @@ export default function TodosPage() {
                 </div>
               );
             })}
+          </div>
+        )}
+
+        {/* ====== GRAB TASKS TAB ====== */}
+        {tab === 'grab' && (
+          <div>
+            <div className="text-center mb-6">
+              <h2 className="text-lg font-bold mb-1">🏷️ Available Tasks</h2>
+              <p className="text-white/30 text-xs">Grab a task to add it to your to-do list and earn money!</p>
+            </div>
+
+            {unclaimedTasks.length === 0 ? (
+              <div className="text-center py-16 text-white/20">
+                <div className="text-5xl mb-4">🏷️</div>
+                <p>No unclaimed tasks right now.</p>
+                <p className="text-xs mt-1">Check back later or ask a parent to post some!</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {unclaimedTasks.map((item, i) => (
+                  <motion.div key={item.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: i * 0.08 }}
+                    className="glass rounded-2xl p-5 hover:bg-white/[0.04] transition-colors">
+                    <div className="flex items-start justify-between mb-3">
+                      <h3 className="font-bold text-sm">{item.title}</h3>
+                      {item.dollarAmount && (
+                        <span className="px-3 py-1 rounded-full bg-emerald-500/15 text-emerald-400 text-sm font-bold">
+                          ${item.dollarAmount.toFixed(2)}
+                        </span>
+                      )}
+                    </div>
+                    {item.description && <p className="text-white/30 text-xs mb-3">{item.description}</p>}
+                    <div className="flex items-center gap-2 mb-4">
+                      {item.dueDate && (
+                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/5 text-white/30">
+                          📅 {formatDate(item.dueDate)}
+                        </span>
+                      )}
+                      <span className="text-[10px] text-white/15">Posted by {item.createdBy}</span>
+                    </div>
+                    <button onClick={() => handleClaimTask(item.id)}
+                      disabled={myActiveAmount >= maxActive}
+                      className={`w-full py-3 rounded-xl text-sm font-medium transition-all ${
+                        myActiveAmount >= maxActive
+                          ? 'bg-white/5 text-white/20 cursor-not-allowed'
+                          : 'bg-gradient-to-r from-emerald-500/20 to-teal-500/20 text-emerald-400 border border-emerald-500/20 hover:from-emerald-500/30 hover:to-teal-500/30'
+                      }`}>
+                      {myActiveAmount >= maxActive ? '🔒 Complete tasks first' : '🙋 Grab This Task'}
+                    </button>
+                  </motion.div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
