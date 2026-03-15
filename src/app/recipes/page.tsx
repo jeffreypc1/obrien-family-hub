@@ -24,7 +24,15 @@ interface RecipeItem {
   servings: number | null;
   source: string | null;
   addedBy: string | null;
+  tagsJson: string | null;
   ratings: RecipeRating[];
+}
+
+interface RecipeTagItem {
+  id: string;
+  name: string;
+  icon: string;
+  color: string;
 }
 
 interface RecipeTab {
@@ -47,6 +55,10 @@ export default function RecipesPage() {
   const [adding, setAdding] = useState(false);
   const [newTabName, setNewTabName] = useState('');
   const [newTabIcon, setNewTabIcon] = useState('🍽️');
+  const [allTags, setAllTags] = useState<RecipeTagItem[]>([]);
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [activeTagFilter, setActiveTagFilter] = useState<string | null>(null);
+  const [newCustomTag, setNewCustomTag] = useState('');
 
   const fetchTabs = useCallback(async () => {
     const res = await fetch('/api/recipes/tabs');
@@ -62,7 +74,12 @@ export default function RecipesPage() {
     setLoading(false);
   }, [activeTab]);
 
-  useEffect(() => { fetchTabs(); }, [fetchTabs]);
+  const fetchTags = useCallback(async () => {
+    const res = await fetch('/api/recipe-tags');
+    setAllTags(await res.json());
+  }, []);
+
+  useEffect(() => { fetchTabs(); fetchTags(); }, [fetchTabs, fetchTags]);
   useEffect(() => { if (activeTab) fetchItems(); }, [activeTab, fetchItems]);
 
   const handleAddRecipe = async () => {
@@ -76,11 +93,13 @@ export default function RecipesPage() {
         title: newTitle.trim() || 'auto',
         url: newUrl.trim() || null,
         addedBy: currentMember?.name || 'Anonymous',
+        tagsJson: selectedTags.length > 0 ? JSON.stringify(selectedTags) : null,
       }),
     });
     if (res.ok) {
       setNewUrl('');
       setNewTitle('');
+      setSelectedTags([]);
       setShowAddRecipe(false);
       fetchItems();
       fetchTabs();
@@ -178,18 +197,58 @@ export default function RecipesPage() {
           )}
         </div>
 
+        {/* Tag filter bar */}
+        {(() => {
+          // Get tags used in current tab's items
+          const tabTags = new Set<string>();
+          items.forEach((item) => {
+            if (item.tagsJson) {
+              try { (JSON.parse(item.tagsJson) as string[]).forEach((t) => tabTags.add(t)); } catch {}
+            }
+          });
+          const usedTags = allTags.filter((t) => tabTags.has(t.name));
+
+          if (usedTags.length === 0) return null;
+          return (
+            <div className="flex gap-1.5 mb-6 flex-wrap">
+              <button onClick={() => setActiveTagFilter(null)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                  !activeTagFilter ? 'bg-white/10 text-white' : 'bg-white/5 text-white/30 hover:text-white/60'}`}>
+                All
+              </button>
+              {usedTags.map((tag) => {
+                const count = items.filter((item) => {
+                  try { return item.tagsJson && (JSON.parse(item.tagsJson) as string[]).includes(tag.name); } catch { return false; }
+                }).length;
+                return (
+                  <button key={tag.id} onClick={() => setActiveTagFilter(activeTagFilter === tag.name ? null : tag.name)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                      activeTagFilter === tag.name ? 'text-white' : 'text-white/30 hover:text-white/60'}`}
+                    style={activeTagFilter === tag.name ? { background: `${tag.color}25`, border: `1px solid ${tag.color}40`, color: tag.color } : { background: 'rgba(255,255,255,0.03)' }}>
+                    {tag.icon} {tag.name} <span className="opacity-50 ml-0.5">({count})</span>
+                  </button>
+                );
+              })}
+            </div>
+          );
+        })()}
+
         {/* Recipe cards grid */}
         {loading ? (
           <div className="flex justify-center py-20"><div className="text-4xl animate-spin">🍳</div></div>
         ) : (
           <AnimatePresence mode="wait">
-            <motion.div key={activeTab} initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+            <motion.div key={`${activeTab}-${activeTagFilter}`} initial={{ opacity: 0 }} animate={{ opacity: 1 }}
               className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {items.map((item, i) => {
+              {items.filter((item) => {
+                if (!activeTagFilter) return true;
+                try { return item.tagsJson && (JSON.parse(item.tagsJson) as string[]).includes(activeTagFilter); } catch { return false; }
+              }).map((item, i) => {
                 const avgRating = item.ratings.length
                   ? item.ratings.reduce((s, r) => s + r.stars, 0) / item.ratings.length : 0;
                 const myRating = item.ratings.filter((r) => r.memberName === currentMember?.name);
                 const myLatest = myRating.length ? myRating[myRating.length - 1].stars : 0;
+                const itemTags: string[] = item.tagsJson ? JSON.parse(item.tagsJson) : [];
 
                 return (
                   <motion.div key={item.id} initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }}
@@ -228,6 +287,19 @@ export default function RecipesPage() {
                         <div className="p-4">
                           <h3 className="font-bold text-sm leading-snug mb-1 group-hover:text-white transition-colors line-clamp-2">{item.title}</h3>
                           {item.source && <p className="text-white/30 text-xs">{item.source}</p>}
+                          {itemTags.length > 0 && (
+                            <div className="flex gap-1 mt-1.5 flex-wrap">
+                              {itemTags.map((tagName) => {
+                                const tag = allTags.find((t) => t.name === tagName);
+                                return (
+                                  <span key={tagName} className="text-[9px] px-1.5 py-0.5 rounded-full"
+                                    style={{ background: `${tag?.color || '#6B7280'}15`, color: tag?.color || '#6B7280' }}>
+                                    {tag?.icon || '🏷️'} {tagName}
+                                  </span>
+                                );
+                              })}
+                            </div>
+                          )}
                           {item.description && <p className="text-white/25 text-xs mt-1 line-clamp-2">{item.description}</p>}
                         </div>
                       </div>
@@ -267,12 +339,46 @@ export default function RecipesPage() {
                 onKeyDown={(e) => e.key === 'Enter' && handleAddRecipe()}
                 placeholder="Paste YouTube URL or any recipe link (optional)"
                 className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/30 focus:outline-none focus:border-orange-500 text-sm" />
+              {/* Tag selector */}
+              <div>
+                <label className="text-xs text-white/30 block mb-2">Tags</label>
+                <div className="flex gap-1.5 flex-wrap">
+                  {allTags.map((tag) => {
+                    const isSelected = selectedTags.includes(tag.name);
+                    return (
+                      <button key={tag.id} type="button"
+                        onClick={() => setSelectedTags((prev) => isSelected ? prev.filter((t) => t !== tag.name) : [...prev, tag.name])}
+                        className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all ${
+                          isSelected ? 'text-white' : 'text-white/25 hover:text-white/50'}`}
+                        style={isSelected ? { background: `${tag.color}25`, border: `1px solid ${tag.color}40`, color: tag.color } : { background: 'rgba(255,255,255,0.03)' }}>
+                        {tag.icon} {tag.name}
+                      </button>
+                    );
+                  })}
+                </div>
+                {/* Add custom tag */}
+                <div className="flex gap-2 mt-2">
+                  <input type="text" value={newCustomTag} onChange={(e) => setNewCustomTag(e.target.value)}
+                    placeholder="+ New tag..."
+                    className="bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white placeholder-white/15 focus:outline-none w-32" />
+                  {newCustomTag.trim() && (
+                    <button onClick={async () => {
+                      await fetch('/api/recipe-tags', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ name: newCustomTag.trim() }) });
+                      setSelectedTags((prev) => [...prev, newCustomTag.trim()]);
+                      setNewCustomTag('');
+                      fetchTags();
+                    }} className="px-3 py-1.5 rounded-lg bg-orange-500/15 text-orange-400 text-xs">Add</button>
+                  )}
+                </div>
+              </div>
+
               <div className="flex gap-2">
                 <button onClick={handleAddRecipe} disabled={adding || (!newTitle.trim() && !newUrl.trim())}
                   className="px-6 py-3 rounded-xl bg-gradient-to-r from-orange-500 to-red-500 text-white font-medium text-sm disabled:opacity-30">
                   {adding ? 'Adding...' : 'Add Recipe'}
                 </button>
-                <button onClick={() => { setShowAddRecipe(false); setNewUrl(''); setNewTitle(''); }}
+                <button onClick={() => { setShowAddRecipe(false); setNewUrl(''); setNewTitle(''); setSelectedTags([]); }}
                   className="px-4 py-3 rounded-xl bg-white/5 text-white/40 text-sm">Cancel</button>
               </div>
             </div>

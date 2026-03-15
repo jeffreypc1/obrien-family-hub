@@ -35,7 +35,7 @@ function extractYoutubeId(url: string): string | null {
 
 export async function POST(request: NextRequest) {
   const body = await request.json();
-  const { tabId, title, url, description, servings, prepTime, cookTime, ingredientsJson, instructionsJson, source, addedBy } = body;
+  const { tabId, title, url, description, servings, prepTime, cookTime, ingredientsJson, instructionsJson, source, addedBy, tagsJson } = body;
 
   if (!tabId || !title?.trim()) {
     return NextResponse.json({ error: 'tabId and title required' }, { status: 400 });
@@ -77,6 +77,7 @@ export async function POST(request: NextRequest) {
       instructionsJson: instructionsJson || null,
       source: source || null,
       addedBy: addedBy || null,
+      tagsJson: tagsJson || null,
       sortOrder: count,
     },
   });

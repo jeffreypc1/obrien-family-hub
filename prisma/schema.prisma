@@ -113,6 +113,7 @@ model RecipeItem {
   instructionsJson String?
   source           String?
   addedBy          String?
+  tagsJson         String?
   sortOrder        Int            @default(0)
   createdAt        DateTime       @default(now())
   ratings          RecipeRating[]
