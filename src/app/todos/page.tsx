@@ -524,7 +524,7 @@ export default function TodosPage() {
 
         {/* ====== KANBAN BOARD (mine / assigned tabs) ====== */}
         {tab !== 'archived' && tab !== 'grab' && tab !== 'manage' && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             {COLUMNS.map((col) => {
               const items = getColumnItems(col.id);
               const isOver = dragOverCol === col.id;
