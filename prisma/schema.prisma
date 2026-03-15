@@ -135,6 +135,43 @@ model ShoppingList {
   updatedAt  DateTime @updatedAt
 }
 
+// ==================== PHOTOS ====================
+
+model Photo {
+  id            String         @id @default(cuid())
+  imageUrl      String
+  caption       String?
+  uploadedBy    String
+  albumId       String?
+  dateTaken     String?
+  location      String?
+  camera        String?
+  width         Int?
+  height        Int?
+  reactionsJson String?
+  createdAt     DateTime       @default(now())
+  comments      PhotoComment[]
+}
+
+model PhotoAlbum {
+  id           String   @id @default(cuid())
+  title        String
+  description  String?
+  coverPhotoId String?
+  createdBy    String?
+  createdAt    DateTime @default(now())
+}
+
+model PhotoComment {
+  id         String   @id @default(cuid())
+  photoId    String
+  photo      Photo    @relation(fields: [photoId], references: [id], onDelete: Cascade)
+  authorName String
+  authorEmoji String?
+  text       String
+  createdAt  DateTime @default(now())
+}
+
 // ==================== RECOMMENDATIONS ====================
 
 model Recommendation {

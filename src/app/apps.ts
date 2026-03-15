@@ -110,6 +110,6 @@ export const FAMILY_APPS: FamilyApp[] = [
     gradient: 'from-rose-500 via-pink-500 to-red-500',
     glowClass: 'glow-pink',
     accentColor: '#F43F5E',
-    status: 'coming-soon',
+    status: 'live',
   },
 ];
