@@ -819,6 +819,16 @@ function GrabTemplatesAdmin({ currentMember }: { currentMember: string }) {
                 }}
                 placeholder="$"
                 className="w-16 bg-white/5 border border-white/10 rounded-lg px-2 py-1 text-xs text-emerald-400 text-right focus:outline-none flex-shrink-0" />
+              {/* Exempt from cap */}
+              <button onClick={async () => {
+                await fetch('/api/grab-templates', { method: 'PUT', headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ id: t.id, exemptFromCap: (t as unknown as Record<string, unknown>).exemptFromCap ? 0 : 1 }) });
+                fetchTemplates();
+              }} className={`text-[9px] px-1.5 py-0.5 rounded flex-shrink-0 transition-all ${
+                (t as unknown as Record<string, unknown>).exemptFromCap ? 'bg-amber-500/15 text-amber-400' : 'bg-white/5 text-white/15 hover:text-white/40'}`}
+                title="Exempt from $20 cap">
+                {(t as unknown as Record<string, unknown>).exemptFromCap ? '⭐' : '☆'}
+              </button>
               {/* Delete */}
               <button onClick={async () => {
                 await fetch(`/api/grab-templates?id=${t.id}`, { method: 'DELETE' });

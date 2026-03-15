@@ -20,6 +20,7 @@ interface TodoItem {
   dollarAmount: number | null;
   paidStatus: string | null;
   paidAt: string | null;
+  exemptFromCap: number | null;
 }
 
 const COLUMNS = [
@@ -38,6 +39,7 @@ export default function TodosPage() {
   const [newDue, setNewDue] = useState('');
   const [newAssignTo, setNewAssignTo] = useState('');
   const [newAmount, setNewAmount] = useState('');
+  const [newExempt, setNewExempt] = useState(false);
   const [showEarnings, setShowEarnings] = useState(false);
   const [dragItem, setDragItem] = useState<string | null>(null);
   const [minPayout, setMinPayout] = useState(20);
@@ -94,9 +96,10 @@ export default function TodosPage() {
         createdBy: currentMember.name,
         dueDate: newDue || null,
         dollarAmount: newAmount ? parseFloat(newAmount) : null,
+        exemptFromCap: newExempt ? 1 : 0,
       }),
     });
-    setNewTitle(''); setNewDesc(''); setNewDue(''); setNewAssignTo(''); setNewAmount('');
+    setNewTitle(''); setNewDesc(''); setNewDue(''); setNewAssignTo(''); setNewAmount(''); setNewExempt(false);
     setShowNew(false);
     fetchTodos();
   };
@@ -125,12 +128,13 @@ export default function TodosPage() {
     fetchTodos();
   };
 
-  // Calculate active (unpaid) task amounts for current member
+  // Calculate active (unpaid) task amounts — exempt tasks don't count toward cap
   const myActiveAmount = todos.filter((t) =>
     t.assignedTo === currentMember?.name &&
     t.dollarAmount &&
     t.status !== 'archived' &&
-    t.paidStatus !== 'paid'
+    t.paidStatus !== 'paid' &&
+    !t.exemptFromCap
   ).reduce((s, t) => s + (t.dollarAmount || 0), 0);
 
   // Calculate pending payout (done but unpaid)
@@ -411,6 +415,17 @@ export default function TodosPage() {
                     placeholder="$0.00"
                     className="bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white text-sm focus:outline-none [color-scheme:dark] w-28" />
                 </div>
+                {newAmount && parseFloat(newAmount) > 0 && (
+                  <div className="flex items-center self-end pb-1">
+                    <label className="flex items-center gap-2 cursor-pointer" onClick={() => setNewExempt(!newExempt)}>
+                      <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center text-xs transition-all ${
+                        newExempt ? 'bg-amber-500 border-amber-500 text-white' : 'border-white/15'}`}>
+                        {newExempt && '✓'}
+                      </div>
+                      <span className="text-xs text-white/40">Exempt from cap</span>
+                    </label>
+                  </div>
+                )}
               </div>
               <div className="flex gap-2">
                 <button onClick={handleCreate} disabled={!newTitle.trim()}
@@ -468,7 +483,7 @@ export default function TodosPage() {
                               <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
                                 item.paidStatus === 'paid' ? 'bg-emerald-500/15 text-emerald-400 line-through' :
                                 col.id === 'done' ? 'bg-emerald-500/15 text-emerald-400' : 'bg-amber-500/10 text-amber-400'}`}>
-                                💰 ${item.dollarAmount.toFixed(2)}{item.paidStatus === 'paid' ? ' ✓ paid' : ''}
+                                💰 ${item.dollarAmount.toFixed(2)}{item.paidStatus === 'paid' ? ' ✓ paid' : ''}{item.exemptFromCap ? ' ⭐' : ''}
                               </span>
                             )}
                             {item.dueDate && (

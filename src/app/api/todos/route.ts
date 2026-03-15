@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   const body = await request.json();
-  const { title, description, assignedTo, createdBy, dueDate, dollarAmount } = body;
+  const { title, description, assignedTo, createdBy, dueDate, dollarAmount, exemptFromCap } = body;
 
   if (!title?.trim() || !assignedTo || !createdBy) {
     return NextResponse.json({ error: 'title, assignedTo, and createdBy required' }, { status: 400 });
@@ -35,6 +35,7 @@ export async function POST(request: NextRequest) {
       createdBy,
       dueDate: dueDate || null,
       dollarAmount: dollarAmount || null,
+      exemptFromCap: exemptFromCap || null,
     },
   });
 

@@ -280,9 +280,10 @@ model TodoItem {
   dueDate      String?
   startedAt    String?
   completedAt  String?
-  dollarAmount Float?
-  paidStatus   String?  @default("none")
-  paidAt       String?
+  dollarAmount  Float?
+  paidStatus    String?  @default("none")
+  paidAt        String?
+  exemptFromCap Int?     @default(0)
   sortOrder    Int      @default(0)
   createdAt    DateTime @default(now())
 }
