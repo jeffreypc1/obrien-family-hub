@@ -389,8 +389,19 @@ export default function RecipesPage() {
                                     fetchTags();
                                   }
                                 }}
-                                placeholder="Type a new tag and press Enter..."
+                                placeholder="Type a new tag name..."
                                 className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-white/25 focus:outline-none focus:border-orange-500" />
+                              <button onClick={async () => {
+                                if (!customTagInput.trim()) return;
+                                await fetch('/api/recipe-tags', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({ name: customTagInput.trim() }) });
+                                setEditingTagsList((prev) => [...prev, customTagInput.trim()]);
+                                setCustomTagInput('');
+                                fetchTags();
+                              }} disabled={!customTagInput.trim()}
+                                className="px-5 py-3 rounded-xl bg-white/10 text-white text-sm font-medium hover:bg-white/20 disabled:opacity-30 transition-all">
+                                + Add
+                              </button>
                             </div>
                           </div>
 
