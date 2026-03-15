@@ -790,7 +790,7 @@ function GrabTemplatesAdmin({ currentMember }: { currentMember: string }) {
                 {isSelected && '✓'}
               </div>
               <span className="text-sm flex-shrink-0">{cat.icon}</span>
-              {/* Editable title */}
+              {/* Editable title — visible border */}
               <input type="text" defaultValue={t.title}
                 onBlur={(e) => {
                   if (e.target.value.trim() !== t.title) {
@@ -798,14 +798,14 @@ function GrabTemplatesAdmin({ currentMember }: { currentMember: string }) {
                       body: JSON.stringify({ id: t.id, title: e.target.value.trim() }) }).then(() => fetchTemplates());
                   }
                 }}
-                className="flex-1 bg-transparent text-sm text-white focus:bg-white/5 focus:outline-none rounded px-1 min-w-0" />
-              {/* Editable description */}
-              <input type="text" defaultValue={t.description || ''} placeholder="description..."
+                className="flex-1 bg-white/5 border border-white/10 text-sm text-white rounded-lg px-2 py-1 focus:border-emerald-500 focus:outline-none min-w-0" />
+              {/* Editable description — visible border */}
+              <input type="text" defaultValue={t.description || ''} placeholder="+ add description"
                 onBlur={(e) => {
                   fetch('/api/grab-templates', { method: 'PUT', headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ id: t.id, description: e.target.value.trim() }) }).then(() => fetchTemplates());
                 }}
-                className="w-32 md:w-48 bg-transparent text-[10px] text-white/25 focus:bg-white/5 focus:text-white/50 focus:outline-none rounded px-1 hidden md:block" />
+                className="w-32 md:w-48 bg-white/5 border border-white/10 text-[11px] text-white/40 rounded-lg px-2 py-1 focus:border-emerald-500 focus:text-white/60 focus:outline-none hidden md:block" />
               {/* Editable amount */}
               <input type="number" step="0.5" min="0"
                 defaultValue={t.dollarAmount ?? ''}
