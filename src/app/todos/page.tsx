@@ -71,6 +71,7 @@ export default function TodosPage() {
   const [payBy, setPayBy] = useState('');
   const [payNote, setPayNote] = useState('');
   const [deadlineModal, setDeadlineModal] = useState<{ taskId: string; taskTitle: string; dueDate: string; dollarAmount: number } | null>(null);
+  const [showHowTo, setShowHowTo] = useState(false);
 
   const fetchTodos = useCallback(async () => {
     if (!currentMember) return;
@@ -407,6 +408,10 @@ export default function TodosPage() {
                 📦 Archive Done ({doneCount})
               </button>
             )}
+            <button onClick={() => setShowHowTo(true)}
+              className="px-5 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white/40 hover:text-white text-sm transition-all">
+              ❓ How It Works
+            </button>
             <button onClick={() => setShowEarnings(!showEarnings)}
               className={`px-5 py-2.5 rounded-xl text-sm font-medium transition-all ${
                 showEarnings ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/20' : 'bg-white/5 border border-white/10 text-white/40 hover:text-white'}`}>
@@ -1079,6 +1084,119 @@ export default function TodosPage() {
           </div>
         )}
       </div>
+
+      {/* How It Works modal */}
+      <AnimatePresence>
+        {showHowTo && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm overflow-y-auto"
+            onClick={() => setShowHowTo(false)}>
+            <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 20 }}
+              className="w-full max-w-2xl bg-[#1a1a2e] border border-white/10 rounded-2xl p-8 shadow-2xl my-8 max-h-[90vh] overflow-y-auto"
+              onClick={(e) => e.stopPropagation()}>
+
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-2xl font-bold">❓ How the To-Do System Works</h2>
+                <button onClick={() => setShowHowTo(false)} className="text-white/40 hover:text-white text-xl">✕</button>
+              </div>
+
+              <div className="space-y-6 text-sm leading-relaxed">
+                {/* Earning Money */}
+                <div>
+                  <h3 className="text-lg font-bold text-emerald-400 mb-2">💰 How You Earn Money</h3>
+                  <p className="text-white/60 mb-2">There are three ways to earn:</p>
+                  <div className="space-y-2 ml-4">
+                    <p className="text-white/50"><strong className="text-white">1. Grab Tasks</strong> — Go to the <span className="text-emerald-400">🏷️ Grab</span> tab. These are tasks posted by your parents that anyone can claim. Click &ldquo;🙋 Grab This Task&rdquo; to add it to your to-do list. Each task shows how much it pays.</p>
+                    <p className="text-white/50"><strong className="text-white">2. Assigned Tasks</strong> — Sometimes a parent will assign a task directly to you. It&apos;ll show up in your <span className="text-emerald-400">📋 My Tasks</span> tab automatically.</p>
+                    <p className="text-white/50"><strong className="text-white">3. Chore Collections</strong> — Weekly bundles of chores (like walking the dog M/W/F). Complete ALL items in the collection by the deadline to earn the full reward. Check the <span className="text-emerald-400">📦 Collections</span> tab.</p>
+                  </div>
+                </div>
+
+                {/* The Board */}
+                <div>
+                  <h3 className="text-lg font-bold text-blue-400 mb-2">📋 The Kanban Board</h3>
+                  <p className="text-white/60 mb-2">Your tasks move through 4 columns:</p>
+                  <div className="grid grid-cols-4 gap-2 mb-2">
+                    <div className="p-2 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-center">
+                      <span className="text-lg">📋</span><br/><span className="text-white/50 text-xs">To Do</span>
+                    </div>
+                    <div className="p-2 rounded-lg bg-amber-500/10 border border-amber-500/20 text-center">
+                      <span className="text-lg">⚡</span><br/><span className="text-white/50 text-xs">In Progress</span>
+                    </div>
+                    <div className="p-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-center">
+                      <span className="text-lg">✅</span><br/><span className="text-white/50 text-xs">Done</span>
+                    </div>
+                    <div className="p-2 rounded-lg bg-violet-500/10 border border-violet-500/20 text-center">
+                      <span className="text-lg">💸</span><br/><span className="text-white/50 text-xs">Paid</span>
+                    </div>
+                  </div>
+                  <p className="text-white/50"><strong className="text-white">Drag tasks</strong> from left to right as you work on them. On mobile, use the move buttons under each task.</p>
+                </div>
+
+                {/* Payout Rules */}
+                <div>
+                  <h3 className="text-lg font-bold text-amber-400 mb-2">💸 Getting Paid</h3>
+                  <div className="space-y-2 ml-4">
+                    <p className="text-white/50"><strong className="text-white">Minimum payout:</strong> You need at least <span className="text-amber-400 font-bold">${minPayout}</span> in completed tasks before you can get paid. Watch the progress bar at the top!</p>
+                    <p className="text-white/50"><strong className="text-white">How it works:</strong> Once you hit the minimum, a parent will drag your completed tasks to the 💸 Paid column. They&apos;ll record the payment in the app and send it via Step.</p>
+                    <p className="text-white/50"><strong className="text-white">Task limit:</strong> You can only have <span className="text-amber-400 font-bold">${maxActive}</span> worth of active (unpaid) tasks at a time. Finish what you have before grabbing more!</p>
+                  </div>
+                </div>
+
+                {/* Grade Bonus */}
+                <div>
+                  <h3 className="text-lg font-bold text-purple-400 mb-2">🎓 Grade Bonus</h3>
+                  <p className="text-white/60 mb-2">Your school grades affect your earnings! Your GPA is pulled from Canvas and applies a multiplier to your payouts:</p>
+                  <div className="grid grid-cols-3 gap-2 mb-2">
+                    <div className="p-2 rounded-lg bg-emerald-500/10 text-center">
+                      <span className="text-emerald-400 font-bold">3.7+ GPA</span><br/><span className="text-white/40 text-xs">2.0x = Double pay!</span>
+                    </div>
+                    <div className="p-2 rounded-lg bg-blue-500/10 text-center">
+                      <span className="text-blue-400 font-bold">3.5+ GPA</span><br/><span className="text-white/40 text-xs">1.25x bonus</span>
+                    </div>
+                    <div className="p-2 rounded-lg bg-red-500/10 text-center">
+                      <span className="text-red-400 font-bold">&lt;2.5 GPA</span><br/><span className="text-white/40 text-xs">0.75x penalty</span>
+                    </div>
+                  </div>
+                  <p className="text-white/50">Missing assignments also affect your earnings. <strong className="text-white">0 missing = $5 bonus.</strong> 6+ missing = 25% penalty.</p>
+                </div>
+
+                {/* Deadlines */}
+                <div>
+                  <h3 className="text-lg font-bold text-red-400 mb-2">⏰ Deadlines Matter</h3>
+                  <div className="space-y-2 ml-4">
+                    <p className="text-white/50"><strong className="text-white">Fixed deadlines (⏰):</strong> Some tasks have a hard deadline. If you don&apos;t finish by the due date, <span className="text-red-400">you don&apos;t get paid</span> for that task.</p>
+                    <p className="text-white/50"><strong className="text-white">Chore collections:</strong> If you don&apos;t complete your weekly collection by the deadline, you lose the reward AND <span className="text-red-400">grab tasks are locked for 2 days</span>.</p>
+                  </div>
+                </div>
+
+                {/* Special Tasks */}
+                <div>
+                  <h3 className="text-lg font-bold text-yellow-400 mb-2">⭐ Special Tasks</h3>
+                  <p className="text-white/50">Some tasks have a <span className="text-amber-400">⭐</span> star — these are &ldquo;exempt&rdquo; and don&apos;t count toward your ${maxActive} task limit. They&apos;re usually bigger special projects with higher pay.</p>
+                </div>
+
+                {/* Tips */}
+                <div>
+                  <h3 className="text-lg font-bold text-cyan-400 mb-2">💡 Tips for Earning More</h3>
+                  <div className="space-y-1 ml-4">
+                    <p className="text-white/50">✅ Keep your grades up — a 3.7+ GPA <strong className="text-white">doubles</strong> your earnings</p>
+                    <p className="text-white/50">✅ Turn in all homework — 0 missing assignments = bonus $5</p>
+                    <p className="text-white/50">✅ Complete chore collections on time — don&apos;t lose your reward</p>
+                    <p className="text-white/50">✅ Grab tasks early — they go fast and there&apos;s a limit</p>
+                    <p className="text-white/50">✅ Don&apos;t hoard — finish tasks before grabbing more</p>
+                  </div>
+                </div>
+              </div>
+
+              <button onClick={() => setShowHowTo(false)}
+                className="w-full mt-6 py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-medium">
+                Got It! 👍
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Deadline check modal */}
       <AnimatePresence>
