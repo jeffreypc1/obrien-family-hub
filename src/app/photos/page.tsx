@@ -55,16 +55,41 @@ export default function PhotosPage() {
     fetchPhotos();
   };
 
+  const compressImage = (file: File, maxWidth: number, quality: number): Promise<string> => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      const reader = new FileReader();
+      reader.onload = () => {
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          let w = img.width;
+          let h = img.height;
+          if (w > maxWidth) { h = (maxWidth / w) * h; w = maxWidth; }
+          canvas.width = w;
+          canvas.height = h;
+          const ctx = canvas.getContext('2d')!;
+          ctx.drawImage(img, 0, 0, w, h);
+          resolve(canvas.toDataURL('image/jpeg', quality));
+        };
+        img.src = reader.result as string;
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const [uploadProgress, setUploadProgress] = useState('');
+
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !currentMember) return;
+    const files = e.target.files;
+    if (!files || !currentMember) return;
 
-    // Convert to base64 data URL (works for small-medium photos)
-    const reader = new FileReader();
-    reader.onload = async () => {
-      const dataUrl = reader.result as string;
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      setUploadProgress(`Uploading ${i + 1} of ${files.length}...`);
 
-      // Try to read EXIF date from filename or use today
+      // Compress to max 1200px wide, 70% quality (~100-300KB)
+      const compressed = await compressImage(file, 1200, 0.7);
+
       const dateMatch = file.name.match(/(\d{4})[-_]?(\d{2})[-_]?(\d{2})/);
       const dateTaken = dateMatch ? `${dateMatch[1]}-${dateMatch[2]}-${dateMatch[3]}` : new Date().toISOString().split('T')[0];
 
@@ -72,13 +97,14 @@ export default function PhotosPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          imageUrl: dataUrl, uploadedBy: currentMember.name,
+          imageUrl: compressed, uploadedBy: currentMember.name,
           dateTaken, albumId: uploadAlbum || null,
         }),
       });
-      fetchPhotos();
-    };
-    reader.readAsDataURL(file);
+    }
+
+    setUploadProgress('');
+    fetchPhotos();
     e.target.value = '';
   };
 
@@ -175,7 +201,7 @@ export default function PhotosPage() {
         <div className="flex items-center justify-between mb-8">
           <h1 className="text-3xl font-bold">📸 Family Photos</h1>
           <div className="flex gap-2">
-            <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileUpload} />
+            <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleFileUpload} />
             <button onClick={() => fileInputRef.current?.click()}
               className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-rose-500 to-pink-500 text-white font-medium text-sm hover:scale-105 transition-transform shadow-lg shadow-rose-500/20">
               📸 Upload Photo
@@ -186,6 +212,13 @@ export default function PhotosPage() {
             </button>
           </div>
         </div>
+
+        {/* Upload progress */}
+        {uploadProgress && (
+          <div className="mb-4 px-4 py-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-sm flex items-center gap-3">
+            <span className="animate-spin">📸</span> {uploadProgress}
+          </div>
+        )}
 
         {/* Tabs */}
         <div className="flex gap-1 bg-white/5 rounded-xl p-1 mb-8 max-w-lg">
@@ -483,8 +516,8 @@ export default function PhotosPage() {
 
       {/* Floating upload button (mobile-friendly) */}
       <button onClick={() => fileInputRef.current?.click()}
-        className="fixed bottom-6 right-6 w-14 h-14 rounded-full bg-gradient-to-r from-rose-500 to-pink-500 text-white text-2xl shadow-xl shadow-rose-500/30 hover:scale-110 transition-transform z-30 flex items-center justify-center md:hidden">
-        📸
+        className="fixed bottom-6 right-6 w-14 h-14 rounded-full bg-gradient-to-r from-rose-500 to-pink-500 text-white text-2xl shadow-xl shadow-rose-500/30 hover:scale-110 transition-transform z-30 flex items-center justify-center">
+        {uploadProgress ? <span className="animate-spin text-lg">⏳</span> : '📸'}
       </button>
     </div>
   );
