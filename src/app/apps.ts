@@ -113,6 +113,18 @@ export const FAMILY_APPS: FamilyApp[] = [
     status: 'live',
   },
   {
+    id: 'grades',
+    name: 'Grades',
+    tagline: 'Track. Learn. Succeed.',
+    description: 'Live grades dashboard from Canvas — GPA, course grades, missing assignments, and upcoming due dates.',
+    url: '/grades',
+    icon: '📚',
+    gradient: 'from-blue-500 via-indigo-500 to-purple-500',
+    glowClass: 'glow-blue',
+    accentColor: '#6366F1',
+    status: 'live',
+  },
+  {
     id: 'wishlist',
     name: 'Wish List',
     tagline: 'Wish. Share. Surprise.',
