@@ -78,16 +78,21 @@ export async function GET(request: Request) {
 
         const assignments = submissions.map((s: Record<string, unknown>) => {
           const a = s.assignment as Record<string, unknown> || {};
+          const score = s.score as number | null;
+          const pts = a.points_possible as number || 0;
           return {
             name: a.name as string || '?',
-            score: s.score as number | null,
-            pointsPossible: a.points_possible as number || 0,
+            score,
+            pointsPossible: pts,
+            percentage: score !== null && pts > 0 ? Math.round((score / pts) * 1000) / 10 : null,
             grade: s.grade as string | null,
             late: s.late as boolean || false,
             missing: s.missing as boolean || false,
             submitted: s.workflow_state === 'graded' || s.workflow_state === 'submitted',
             dueAt: a.due_at as string | null,
             gradedAt: s.graded_at as string | null,
+            submittedAt: s.submitted_at as string | null,
+            assignmentGroup: (a.assignment_group_id as number) || null,
           };
         });
 

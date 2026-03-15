@@ -7,8 +7,8 @@ import ThemedBackground from '@/components/ThemedBackground';
 
 interface CourseGrade { courseId: number; courseName: string; grade: string | null; score: number | null; }
 interface AssignmentDetail {
-  name: string; score: number | null; pointsPossible: number; grade: string | null;
-  late: boolean; missing: boolean; submitted: boolean; dueAt: string | null; gradedAt: string | null;
+  name: string; score: number | null; pointsPossible: number; percentage: number | null; grade: string | null;
+  late: boolean; missing: boolean; submitted: boolean; dueAt: string | null; gradedAt: string | null; submittedAt: string | null;
 }
 interface CourseDetail extends CourseGrade { assignments: AssignmentDetail[]; }
 interface StudentOverview { id: number; name: string; courses: CourseGrade[]; gpa: number | null; }
@@ -30,7 +30,10 @@ export default function GradesPage() {
   const [detailLoading, setDetailLoading] = useState(false);
   const [error, setError] = useState('');
   const [selectedStudent, setSelectedStudent] = useState<number | null>(null);
-  const [view, setView] = useState<'overview' | 'assignments' | 'visual' | 'history'>('overview');
+  const [view, setView] = useState<'overview' | 'analytics' | 'assignments' | 'visual' | 'history'>('overview');
+  const [dateFilter, setDateFilter] = useState('all');
+  const [courseFilter, setCourseFilter] = useState('all');
+  const [gradeFilter, setGradeFilter] = useState('all');
   const [sortBy, setSortBy] = useState<SortKey>('grade-high');
   const [expandedCourse, setExpandedCourse] = useState<number | null>(null);
   const [lastRefresh, setLastRefresh] = useState<string>('');
@@ -178,10 +181,10 @@ export default function GradesPage() {
 
                 <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
                   <div className="flex gap-1 bg-white/5 rounded-xl p-1">
-                    {(['overview', 'visual', 'assignments', 'history'] as const).map((t) => (
+                    {(['overview', 'analytics', 'visual', 'assignments', 'history'] as const).map((t) => (
                       <button key={t} onClick={() => setView(t)}
                         className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${view === t ? 'bg-white/10 text-white' : 'text-white/40'}`}>
-                        {t === 'overview' ? '📊 Grades' : t === 'visual' ? '📈 Visual' : t === 'assignments' ? '📝 Assignments' : '📜 History'}
+                        {t === 'overview' ? '📊 Grades' : t === 'analytics' ? '🔍 Analytics' : t === 'visual' ? '📈 Visual' : t === 'assignments' ? '📝 Missing' : '📜 History'}
                       </button>
                     ))}
                   </div>
@@ -307,6 +310,249 @@ export default function GradesPage() {
                     </div>
                   </div>
                 )}
+
+                {view === 'analytics' && (() => {
+                  // Build all assignments across all courses
+                  const allAssignments = detail.courses.flatMap((c) => {
+                    const cd = c as CourseDetail;
+                    return (cd.assignments || []).map((a) => ({ ...a, courseName: cleanName(c.courseName).split(' - ')[0], courseGrade: c.grade }));
+                  });
+
+                  // Apply filters
+                  const now = new Date();
+                  const filtered = allAssignments.filter((a) => {
+                    if (courseFilter !== 'all' && a.courseName !== courseFilter) return false;
+                    if (gradeFilter === 'passing' && a.percentage !== null && a.percentage < 70) return false;
+                    if (gradeFilter === 'failing' && (a.percentage === null || a.percentage >= 70)) return false;
+                    if (gradeFilter === 'missing' && !a.missing) return false;
+                    if (gradeFilter === 'late' && !a.late) return false;
+                    if (dateFilter !== 'all' && a.gradedAt) {
+                      const d = new Date(a.gradedAt);
+                      if (dateFilter === '7d' && now.getTime() - d.getTime() > 7 * 86400000) return false;
+                      if (dateFilter === '30d' && now.getTime() - d.getTime() > 30 * 86400000) return false;
+                      if (dateFilter === '90d' && now.getTime() - d.getTime() > 90 * 86400000) return false;
+                    }
+                    return true;
+                  });
+
+                  // Stats
+                  const graded = filtered.filter((a) => a.percentage !== null);
+                  const avgPct = graded.length ? graded.reduce((s, a) => s + (a.percentage || 0), 0) / graded.length : 0;
+                  const missingCount = filtered.filter((a) => a.missing).length;
+                  const lateCount = filtered.filter((a) => a.late).length;
+                  const perfectCount = graded.filter((a) => a.percentage === 100).length;
+                  const failingCount = graded.filter((a) => (a.percentage || 0) < 60).length;
+
+                  // Trend by week
+                  const weeklyData: Record<string, { scores: number[]; count: number }> = {};
+                  graded.forEach((a) => {
+                    const d = a.gradedAt || a.dueAt;
+                    if (!d) return;
+                    const date = new Date(d);
+                    const weekStart = new Date(date);
+                    weekStart.setDate(date.getDate() - date.getDay());
+                    const key = weekStart.toISOString().split('T')[0];
+                    if (!weeklyData[key]) weeklyData[key] = { scores: [], count: 0 };
+                    weeklyData[key].scores.push(a.percentage || 0);
+                    weeklyData[key].count++;
+                  });
+                  const weeks = Object.entries(weeklyData).sort(([a], [b]) => a.localeCompare(b));
+                  const maxWeekAvg = Math.max(...weeks.map(([, w]) => w.scores.reduce((s, v) => s + v, 0) / w.scores.length), 100);
+
+                  // Per-course performance
+                  const courseNames = [...new Set(allAssignments.map((a) => a.courseName))];
+                  const coursePerf = courseNames.map((name) => {
+                    const ca = graded.filter((a) => a.courseName === name);
+                    return { name, avg: ca.length ? ca.reduce((s, a) => s + (a.percentage || 0), 0) / ca.length : 0, count: ca.length, missing: filtered.filter((a) => a.courseName === name && a.missing).length };
+                  }).sort((a, b) => b.avg - a.avg);
+
+                  // Strengths & weaknesses
+                  const strengths = coursePerf.filter((c) => c.avg >= 85);
+                  const concerns = coursePerf.filter((c) => c.avg < 75 || c.missing > 0);
+
+                  return (
+                    <div className="space-y-6">
+                      {/* Filters */}
+                      <div className="flex gap-3 flex-wrap">
+                        <select value={dateFilter} onChange={(e) => setDateFilter(e.target.value)}
+                          className="bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white [&>option]:bg-gray-900">
+                          <option value="all">All Time</option><option value="7d">Last 7 Days</option>
+                          <option value="30d">Last 30 Days</option><option value="90d">Last 90 Days</option>
+                        </select>
+                        <select value={courseFilter} onChange={(e) => setCourseFilter(e.target.value)}
+                          className="bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white [&>option]:bg-gray-900">
+                          <option value="all">All Courses</option>
+                          {courseNames.map((n) => <option key={n} value={n}>{n}</option>)}
+                        </select>
+                        <select value={gradeFilter} onChange={(e) => setGradeFilter(e.target.value)}
+                          className="bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white [&>option]:bg-gray-900">
+                          <option value="all">All Assignments</option><option value="passing">Passing Only (70%+)</option>
+                          <option value="failing">Failing Only (&lt;70%)</option><option value="missing">Missing Only</option><option value="late">Late Only</option>
+                        </select>
+                      </div>
+
+                      {/* Summary cards */}
+                      <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
+                        {[
+                          { label: 'Avg Score', value: avgPct.toFixed(1) + '%', color: avgPct >= 80 ? '#22C55E' : avgPct >= 70 ? '#FBBF24' : '#EF4444' },
+                          { label: 'Total', value: String(filtered.length), color: '#60A5FA' },
+                          { label: 'Perfect', value: String(perfectCount), color: '#22C55E' },
+                          { label: 'Failing', value: String(failingCount), color: failingCount > 0 ? '#EF4444' : '#22C55E' },
+                          { label: 'Missing', value: String(missingCount), color: missingCount > 0 ? '#EF4444' : '#22C55E' },
+                          { label: 'Late', value: String(lateCount), color: lateCount > 0 ? '#F59E0B' : '#22C55E' },
+                        ].map((s) => (
+                          <div key={s.label} className="glass rounded-xl p-3 text-center">
+                            <span className="text-[10px] text-white/30 block">{s.label}</span>
+                            <span className="text-xl font-bold" style={{ color: s.color }}>{s.value}</span>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Strengths & Concerns */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="glass rounded-xl p-5">
+                          <h3 className="text-sm font-bold text-emerald-400 mb-3">💪 Strengths</h3>
+                          {strengths.length > 0 ? strengths.map((c) => (
+                            <div key={c.name} className="flex items-center justify-between py-1.5">
+                              <span className="text-sm text-white/60">{c.name}</span>
+                              <span className="text-sm font-bold text-emerald-400">{c.avg.toFixed(1)}%</span>
+                            </div>
+                          )) : <p className="text-white/20 text-sm">Keep working!</p>}
+                        </div>
+                        <div className="glass rounded-xl p-5">
+                          <h3 className="text-sm font-bold text-red-400 mb-3">⚠️ Areas of Concern</h3>
+                          {concerns.length > 0 ? concerns.map((c) => (
+                            <div key={c.name} className="flex items-center justify-between py-1.5">
+                              <span className="text-sm text-white/60">{c.name}</span>
+                              <div className="text-right">
+                                <span className="text-sm font-bold" style={{ color: c.avg < 70 ? '#EF4444' : '#F59E0B' }}>{c.avg.toFixed(1)}%</span>
+                                {c.missing > 0 && <span className="text-[10px] text-red-400 ml-2">{c.missing} missing</span>}
+                              </div>
+                            </div>
+                          )) : <p className="text-emerald-400 text-sm">✅ All good!</p>}
+                        </div>
+                      </div>
+
+                      {/* Weekly trend chart */}
+                      {weeks.length > 1 && (
+                        <div className="glass rounded-xl p-5">
+                          <h3 className="text-sm font-bold text-white/50 mb-4">📈 Weekly Score Trend</h3>
+                          <div className="flex items-end gap-1 h-40">
+                            {weeks.slice(-12).map(([week, data]) => {
+                              const avg = data.scores.reduce((s, v) => s + v, 0) / data.scores.length;
+                              const height = (avg / maxWeekAvg) * 100;
+                              return (
+                                <div key={week} className="flex-1 flex flex-col items-center gap-1">
+                                  <span className="text-[9px] text-white/30">{Math.round(avg)}%</span>
+                                  <motion.div className="w-full rounded-t-lg min-h-[4px]"
+                                    initial={{ height: 0 }} animate={{ height: `${height}%` }}
+                                    transition={{ duration: 0.5 }}
+                                    style={{ background: avg >= 80 ? '#22C55E' : avg >= 70 ? '#FBBF24' : '#EF4444' }} />
+                                  <span className="text-[8px] text-white/15 -rotate-45 origin-top-left whitespace-nowrap">
+                                    {new Date(week).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                  </span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Per-course breakdown */}
+                      <div className="glass rounded-xl p-5">
+                        <h3 className="text-sm font-bold text-white/50 mb-4">📊 Per-Course Breakdown</h3>
+                        <div className="space-y-3">
+                          {coursePerf.map((c) => (
+                            <div key={c.name} className="flex items-center gap-3">
+                              <span className="text-xs text-white/40 w-28 truncate text-right">{c.name}</span>
+                              <div className="flex-1 h-6 bg-white/5 rounded-lg overflow-hidden relative">
+                                <motion.div className="h-full rounded-lg"
+                                  initial={{ width: 0 }} animate={{ width: `${c.avg}%` }}
+                                  transition={{ duration: 0.6 }}
+                                  style={{ background: c.avg >= 80 ? '#22C55E80' : c.avg >= 70 ? '#FBBF2480' : '#EF444480' }} />
+                                <span className="absolute inset-0 flex items-center justify-center text-xs font-bold text-white">
+                                  {c.avg.toFixed(1)}%
+                                </span>
+                              </div>
+                              <span className="text-[10px] text-white/20 w-12">{c.count} asgn</span>
+                              {c.missing > 0 && <span className="text-[10px] text-red-400">⚠️{c.missing}</span>}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Assignment score distribution */}
+                      <div className="glass rounded-xl p-5">
+                        <h3 className="text-sm font-bold text-white/50 mb-4">📊 Score Distribution</h3>
+                        <div className="flex items-end gap-1 h-32">
+                          {(() => {
+                            const buckets = Array(10).fill(0);
+                            graded.forEach((a) => {
+                              const idx = Math.min(Math.floor((a.percentage || 0) / 10), 9);
+                              buckets[idx]++;
+                            });
+                            const maxBucket = Math.max(...buckets, 1);
+                            return buckets.map((count, i) => (
+                              <div key={i} className="flex-1 flex flex-col items-center gap-1">
+                                <span className="text-[9px] text-white/20">{count}</span>
+                                <motion.div className="w-full rounded-t-lg min-h-[2px]"
+                                  initial={{ height: 0 }} animate={{ height: `${(count / maxBucket) * 100}%` }}
+                                  transition={{ duration: 0.4, delay: i * 0.05 }}
+                                  style={{ background: i >= 9 ? '#22C55E' : i >= 7 ? '#60A5FA' : i >= 6 ? '#FBBF24' : '#EF4444' }} />
+                                <span className="text-[8px] text-white/20">{i * 10}-{i * 10 + 9}</span>
+                              </div>
+                            ));
+                          })()}
+                        </div>
+                      </div>
+
+                      {/* Filtered assignment table */}
+                      <div className="glass rounded-xl overflow-hidden">
+                        <div className="px-5 py-3 border-b border-white/5 flex items-center justify-between">
+                          <h3 className="text-sm font-bold text-white/50">All Assignments ({filtered.length})</h3>
+                        </div>
+                        <div className="max-h-[400px] overflow-y-auto">
+                          <table className="w-full text-xs">
+                            <thead className="sticky top-0 bg-[#0a0a1f]">
+                              <tr className="text-white/30 border-b border-white/5">
+                                <th className="text-left py-2 px-3">Course</th>
+                                <th className="text-left py-2 px-3">Assignment</th>
+                                <th className="text-right py-2 px-3">Score</th>
+                                <th className="text-right py-2 px-3">%</th>
+                                <th className="text-center py-2 px-3">Status</th>
+                                <th className="text-right py-2 px-3">Date</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {filtered.sort((a, b) => {
+                                if (a.missing && !b.missing) return -1;
+                                if (!a.missing && b.missing) return 1;
+                                return (b.gradedAt || b.dueAt || '').localeCompare(a.gradedAt || a.dueAt || '');
+                              }).slice(0, 100).map((a, i) => (
+                                <tr key={i} className={`border-b border-white/[0.03] ${a.missing ? 'bg-red-500/5' : a.late ? 'bg-amber-500/5' : ''}`}>
+                                  <td className="py-2 px-3 text-white/40">{a.courseName}</td>
+                                  <td className="py-2 px-3 text-white/60 max-w-[200px] truncate">{a.name}</td>
+                                  <td className="py-2 px-3 text-right font-mono" style={{ color: a.missing ? '#EF4444' : getColor(a.courseGrade) }}>
+                                    {a.missing ? 'MISS' : a.score !== null ? `${a.score}/${a.pointsPossible}` : '—'}
+                                  </td>
+                                  <td className="py-2 px-3 text-right font-bold" style={{ color: a.percentage !== null ? (a.percentage >= 80 ? '#22C55E' : a.percentage >= 70 ? '#FBBF24' : '#EF4444') : '#4B5563' }}>
+                                    {a.percentage !== null ? a.percentage + '%' : '—'}
+                                  </td>
+                                  <td className="py-2 px-3 text-center">
+                                    {a.missing ? <span className="text-red-400">⚠️</span> : a.late ? <span className="text-amber-400">🕐</span> : a.submitted ? <span className="text-emerald-400">✓</span> : '—'}
+                                  </td>
+                                  <td className="py-2 px-3 text-right text-white/20">
+                                    {(a.gradedAt || a.dueAt) ? new Date(a.gradedAt || a.dueAt!).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '—'}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
 
                 {view === 'assignments' && (
                   <div className="space-y-4">
