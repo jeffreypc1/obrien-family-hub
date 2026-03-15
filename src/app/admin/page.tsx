@@ -449,6 +449,14 @@ export default function AdminPage() {
           </div>
         </Section>
 
+        <Section id="recurring" icon="🔁" title="Weekly Chores" subtitle="Auto-recurring tasks assigned to family members">
+          <WeeklyChoresAdmin members={members} currentMember={members[0]?.name || 'Admin'} apiCall={apiCall} />
+        </Section>
+
+        <Section id="grab-templates" icon="🏷️" title="Bulk Grab Tasks" subtitle="Post multiple unclaimed tasks at once from a template library">
+          <GrabTemplatesAdmin currentMember={members[0]?.name || 'Admin'} />
+        </Section>
+
         <Section id="cards" icon="🎨" title="Card Names & Descriptions" subtitle="Customize how apps appear on the home page">
 
           <div className="space-y-4">
@@ -575,6 +583,221 @@ export default function AdminPage() {
             {saving ? 'Saving...' : 'Save Room Mappings'}
           </button>
         </Section>
+      </div>
+    </div>
+  );
+}
+
+const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+const DAY_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+interface ChoreItem { id: string; title: string; description: string | null; dayOfWeek: number; dollarAmount: number | null; assignedTo: string; }
+
+function WeeklyChoresAdmin({ members, currentMember, apiCall }: { members: Array<{ id: string; name: string; emoji: string }>; currentMember: string; apiCall: (body: Record<string, unknown>) => Promise<boolean> }) {
+  const [chores, setChores] = useState<ChoreItem[]>([]);
+  const [newTitle, setNewTitle] = useState('');
+  const [newDay, setNewDay] = useState(1);
+  const [newAmount, setNewAmount] = useState('');
+  const [newAssign, setNewAssign] = useState('');
+  const [genMsg, setGenMsg] = useState('');
+
+  const fetchChores = () => fetch('/api/recurring-chores').then((r) => r.json()).then(setChores);
+  useEffect(() => { fetchChores(); }, []);
+
+  const handleAdd = async () => {
+    if (!newTitle.trim()) return;
+    await fetch('/api/recurring-chores', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: newTitle.trim(), dayOfWeek: newDay, dollarAmount: newAmount ? parseFloat(newAmount) : null, assignedTo: newAssign || currentMember, createdBy: currentMember }),
+    });
+    setNewTitle(''); setNewAmount('');
+    fetchChores();
+  };
+
+  const handleDelete = async (id: string) => {
+    await fetch(`/api/recurring-chores?id=${id}`, { method: 'DELETE' });
+    fetchChores();
+  };
+
+  const handleGenerate = async () => {
+    const res = await fetch('/api/recurring-chores', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'generate' }) });
+    const data = await res.json();
+    setGenMsg(`✅ Created ${data.count} tasks for this week`);
+    setTimeout(() => setGenMsg(''), 3000);
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* Generate button */}
+      <div className="flex items-center gap-3 p-3 bg-emerald-500/5 rounded-xl border border-emerald-500/10">
+        <button onClick={handleGenerate} className="px-4 py-2 rounded-xl bg-emerald-500/15 text-emerald-400 text-xs font-medium border border-emerald-500/20 hover:bg-emerald-500/25">
+          🔄 Generate This Week&apos;s Tasks
+        </button>
+        <span className="text-[10px] text-white/25">Creates todo items for each recurring chore this week</span>
+        {genMsg && <span className="text-xs text-emerald-400">{genMsg}</span>}
+      </div>
+
+      {/* Existing chores grouped by day */}
+      {DAYS.map((day, dayIdx) => {
+        const dayChores = chores.filter((c) => c.dayOfWeek === dayIdx);
+        if (dayChores.length === 0) return null;
+        return (
+          <div key={dayIdx}>
+            <h4 className="text-xs text-white/30 uppercase tracking-wider mb-2">{day}</h4>
+            <div className="space-y-1">
+              {dayChores.map((c) => (
+                <div key={c.id} className="flex items-center gap-3 p-2 bg-white/[0.02] rounded-lg group">
+                  <span className="text-sm flex-1">{c.title}</span>
+                  {c.dollarAmount && <span className="text-xs text-emerald-400">${c.dollarAmount.toFixed(2)}</span>}
+                  <span className="text-[10px] text-white/20">{members.find((m) => m.name === c.assignedTo)?.emoji} {c.assignedTo}</span>
+                  <button onClick={() => handleDelete(c.id)} className="text-white/10 hover:text-red-400 text-xs opacity-0 group-hover:opacity-100">✕</button>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })}
+
+      {/* Add new */}
+      <div className="border-t border-white/10 pt-4 space-y-3">
+        <h4 className="text-xs text-white/30">Add weekly chore</h4>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <input type="text" value={newTitle} onChange={(e) => setNewTitle(e.target.value)} placeholder="Task name..."
+            className="bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-white/20 focus:outline-none col-span-2 md:col-span-1" />
+          <select value={newDay} onChange={(e) => setNewDay(Number(e.target.value))}
+            className="bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white [&>option]:bg-gray-900">
+            {DAYS.map((d, i) => <option key={i} value={i}>{d}</option>)}
+          </select>
+          <input type="number" step="0.5" min="0" value={newAmount} onChange={(e) => setNewAmount(e.target.value)} placeholder="$ amount"
+            className="bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-white/20 focus:outline-none" />
+          <select value={newAssign} onChange={(e) => setNewAssign(e.target.value)}
+            className="bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white [&>option]:bg-gray-900">
+            <option value="">Assign to...</option>
+            {members.map((m) => <option key={m.id} value={m.name}>{m.emoji} {m.name}</option>)}
+          </select>
+        </div>
+        <button onClick={handleAdd} disabled={!newTitle.trim()} className="px-4 py-2 rounded-xl bg-emerald-500/15 text-emerald-400 text-xs font-medium disabled:opacity-30">Add Chore</button>
+      </div>
+    </div>
+  );
+}
+
+interface GrabTemplate { id: string; title: string; description: string | null; dollarAmount: number | null; category: string; }
+const GRAB_CATEGORIES: Record<string, { icon: string; label: string }> = {
+  outdoor: { icon: '🌿', label: 'Outdoor' }, indoor: { icon: '🏠', label: 'Indoor' },
+  kitchen: { icon: '🍽️', label: 'Kitchen' }, pets: { icon: '🐾', label: 'Pets' }, general: { icon: '📦', label: 'General' },
+};
+
+function GrabTemplatesAdmin({ currentMember }: { currentMember: string }) {
+  const [templates, setTemplates] = useState<GrabTemplate[]>([]);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [amountOverrides, setAmountOverrides] = useState<Record<string, number>>({});
+  const [posting, setPosting] = useState(false);
+  const [result, setResult] = useState('');
+  const [newTitle, setNewTitle] = useState('');
+  const [newAmount, setNewAmount] = useState('');
+  const [newCat, setNewCat] = useState('general');
+  const [filterCat, setFilterCat] = useState('all');
+
+  const fetchTemplates = () => fetch('/api/grab-templates').then((r) => r.json()).then(setTemplates);
+  useEffect(() => { fetchTemplates(); }, []);
+
+  const toggleSelect = (id: string) => {
+    setSelected((prev) => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+  };
+
+  const selectAll = () => {
+    const filtered = filterCat === 'all' ? templates : templates.filter((t) => t.category === filterCat);
+    setSelected(new Set(filtered.map((t) => t.id)));
+  };
+
+  const handlePost = async () => {
+    if (selected.size === 0) return;
+    setPosting(true);
+    const res = await fetch('/api/grab-templates', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'bulk-post', templateIds: [...selected], createdBy: currentMember, amountOverrides }),
+    });
+    const data = await res.json();
+    setResult(`✅ Posted ${data.count} grab tasks!`);
+    setSelected(new Set());
+    setTimeout(() => setResult(''), 4000);
+    setPosting(false);
+  };
+
+  const handleAddCustom = async () => {
+    if (!newTitle.trim()) return;
+    await fetch('/api/grab-templates', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: newTitle.trim(), dollarAmount: newAmount ? parseFloat(newAmount) : null, category: newCat }),
+    });
+    setNewTitle(''); setNewAmount('');
+    fetchTemplates();
+  };
+
+  const filtered = filterCat === 'all' ? templates : templates.filter((t) => t.category === filterCat);
+
+  return (
+    <div className="space-y-4">
+      {/* Action bar */}
+      <div className="flex items-center gap-3 flex-wrap">
+        <button onClick={handlePost} disabled={posting || selected.size === 0}
+          className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-medium text-sm disabled:opacity-30">
+          {posting ? '...' : `🏷️ Post ${selected.size} as Grab Tasks`}
+        </button>
+        <button onClick={selectAll} className="px-3 py-2 rounded-lg bg-white/5 text-white/40 text-xs hover:text-white">Select All</button>
+        <button onClick={() => setSelected(new Set())} className="px-3 py-2 rounded-lg bg-white/5 text-white/40 text-xs hover:text-white">Clear</button>
+        {result && <span className="text-emerald-400 text-sm">{result}</span>}
+      </div>
+
+      {/* Category filter */}
+      <div className="flex gap-1 flex-wrap">
+        <button onClick={() => setFilterCat('all')} className={`px-3 py-1 rounded-lg text-[10px] ${filterCat === 'all' ? 'bg-white/10 text-white' : 'bg-white/5 text-white/25'}`}>All ({templates.length})</button>
+        {Object.entries(GRAB_CATEGORIES).map(([k, c]) => {
+          const count = templates.filter((t) => t.category === k).length;
+          return <button key={k} onClick={() => setFilterCat(k)} className={`px-3 py-1 rounded-lg text-[10px] ${filterCat === k ? 'bg-white/10 text-white' : 'bg-white/5 text-white/25'}`}>{c.icon} {c.label} ({count})</button>;
+        })}
+      </div>
+
+      {/* Template list with checkboxes */}
+      <div className="space-y-1 max-h-[400px] overflow-y-auto">
+        {filtered.map((t) => {
+          const isSelected = selected.has(t.id);
+          const cat = GRAB_CATEGORIES[t.category] || GRAB_CATEGORIES.general;
+          return (
+            <div key={t.id} className={`flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all ${isSelected ? 'bg-emerald-500/10 border border-emerald-500/20' : 'bg-white/[0.01] border border-transparent hover:bg-white/[0.03]'}`}
+              onClick={() => toggleSelect(t.id)}>
+              <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center text-xs transition-all ${isSelected ? 'bg-emerald-500 border-emerald-500 text-white' : 'border-white/15'}`}>
+                {isSelected && '✓'}
+              </div>
+              <span className="text-sm">{cat.icon}</span>
+              <span className="text-sm flex-1">{t.title}</span>
+              {t.description && <span className="text-[10px] text-white/15 hidden md:block max-w-[200px] truncate">{t.description}</span>}
+              <input type="number" step="0.5" min="0"
+                value={amountOverrides[t.id] ?? t.dollarAmount ?? ''}
+                onClick={(e) => e.stopPropagation()}
+                onChange={(e) => { e.stopPropagation(); setAmountOverrides((p) => ({ ...p, [t.id]: parseFloat(e.target.value) || 0 })); }}
+                placeholder="$"
+                className="w-16 bg-white/5 border border-white/10 rounded-lg px-2 py-1 text-xs text-emerald-400 text-right focus:outline-none" />
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Add custom template */}
+      <div className="border-t border-white/10 pt-4 space-y-3">
+        <h4 className="text-xs text-white/30">Add custom task to library</h4>
+        <div className="flex gap-2">
+          <input type="text" value={newTitle} onChange={(e) => setNewTitle(e.target.value)} placeholder="Task name..."
+            className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-white/20 focus:outline-none" />
+          <input type="number" step="0.5" value={newAmount} onChange={(e) => setNewAmount(e.target.value)} placeholder="$"
+            className="w-20 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-white/20 focus:outline-none" />
+          <select value={newCat} onChange={(e) => setNewCat(e.target.value)}
+            className="bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white [&>option]:bg-gray-900">
+            {Object.entries(GRAB_CATEGORIES).map(([k, c]) => <option key={k} value={k}>{c.icon} {c.label}</option>)}
+          </select>
+          <button onClick={handleAddCustom} disabled={!newTitle.trim()} className="px-4 py-2 rounded-lg bg-white/5 text-white/40 text-xs hover:text-white disabled:opacity-20">Add</button>
+        </div>
       </div>
     </div>
   );
