@@ -158,15 +158,15 @@ export async function GET(request: Request) {
         .map((e) => {
           const g = e.grades || {};
           // Try to get grading period specific grades
-          const periodGrade = (g as Record<string, unknown>).current_period_grade as string | null;
-          const periodScore = (g as Record<string, unknown>).current_period_score as number | null;
+          const fg = (g as Record<string, unknown>).final_grade as string | null;
+          const fs = (g as Record<string, unknown>).final_score as number | null;
           return {
             courseId: e.course_id,
             courseName: courseMap[e.course_id] || `Course ${e.course_id}`,
             grade: g.current_grade || null,
             score: g.current_score || null,
-            semesterGrade: periodGrade || g.current_grade || null,
-            semesterScore: periodScore || g.current_score || null,
+            finalGrade: fg || g.current_grade || null,
+            finalScore: fs || g.current_score || null,
           };
         });
 
@@ -175,17 +175,17 @@ export async function GET(request: Request) {
         'C+': 2.3, 'C': 2.0, 'C-': 1.7, 'D+': 1.3, 'D': 1.0, 'D-': 0.7, 'F': 0.0,
       };
 
-      // Year GPA (from current_grade)
-      const gradedYear = currentCourses.filter((c) => c.grade && gradePoints[c.grade] !== undefined);
-      const yearGpa = gradedYear.length > 0
-        ? gradedYear.reduce((s, c) => s + (gradePoints[c.grade!] || 0), 0) / gradedYear.length : null;
+      // Current GPA (excludes ungraded assignments)
+      const gradedCurrent = currentCourses.filter((c) => c.grade && gradePoints[c.grade] !== undefined);
+      const yearGpa = gradedCurrent.length > 0
+        ? gradedCurrent.reduce((s, c) => s + (gradePoints[c.grade!] || 0), 0) / gradedCurrent.length : null;
 
-      // Semester GPA (from grading period grade if available)
-      const gradedSem = currentCourses.filter((c) => c.semesterGrade && gradePoints[c.semesterGrade] !== undefined);
-      const semGpa = gradedSem.length > 0
-        ? gradedSem.reduce((s, c) => s + (gradePoints[c.semesterGrade!] || 0), 0) / gradedSem.length : null;
+      // Final GPA (counts ungraded as zero — worst case)
+      const gradedFinal = currentCourses.filter((c) => c.finalGrade && gradePoints[c.finalGrade] !== undefined);
+      const semGpa = gradedFinal.length > 0
+        ? gradedFinal.reduce((s, c) => s + (gradePoints[c.finalGrade!] || 0), 0) / gradedFinal.length : null;
 
-      return { id: student.id, name: student.name, courses: currentCourses, yearGpa, semesterGpa: semGpa, currentPeriod: currentPeriod?.title || null };
+      return { id: student.id, name: student.name, courses: currentCourses, yearGpa, semesterGpa: semGpa, currentPeriod: currentPeriod?.title || null, gradingPeriods: overviewGradingPeriods };
     }));
 
     return NextResponse.json({ students: studentData, lastUpdated: new Date().toISOString() });

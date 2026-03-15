@@ -5,7 +5,7 @@ import { motion } from 'framer-motion';
 import Link from 'next/link';
 import ThemedBackground from '@/components/ThemedBackground';
 
-interface CourseGrade { courseId: number; courseName: string; grade: string | null; score: number | null; }
+interface CourseGrade { courseId: number; courseName: string; grade: string | null; score: number | null; finalGrade?: string | null; finalScore?: number | null; }
 interface AssignmentDetail {
   name: string; score: number | null; pointsPossible: number; percentage: number | null; grade: string | null;
   late: boolean; missing: boolean; submitted: boolean; dueAt: string | null; gradedAt: string | null; submittedAt: string | null;
@@ -16,7 +16,10 @@ interface CourseDetail extends CourseGrade {
   assignmentGroups: Array<{ name: string; weight: number }>;
 }
 interface GradingPeriod { id: number; title: string; start_date: string; end_date: string; }
-interface StudentOverview { id: number; name: string; courses: CourseGrade[]; yearGpa: number | null; semesterGpa: number | null; currentPeriod: string | null; }
+interface StudentOverview {
+  id: number; name: string; courses: CourseGrade[]; yearGpa: number | null; semesterGpa: number | null; currentPeriod: string | null;
+  gradingPeriods: GradingPeriod[];
+}
 interface StudentDetail { student: { id: number; name: string }; courses: CourseDetail[]; pastCourses: CourseGrade[]; gradingPeriods: GradingPeriod[]; lastUpdated: string; }
 
 const GRADE_COLORS: Record<string, string> = {
@@ -36,7 +39,7 @@ export default function GradesPage() {
   const [error, setError] = useState('');
   const [selectedStudent, setSelectedStudent] = useState<number | null>(null);
   const [view, setView] = useState<'overview' | 'analytics' | 'assignments' | 'visual' | 'history'>('overview');
-  const [gpaPeriod, setGpaPeriod] = useState<'current' | 'year'>('current');
+  const [gpaPeriod, setGpaPeriod] = useState<'current' | 'withzeros'>('current');
   const [dateFilter, setDateFilter] = useState('all');
   const [courseFilter, setCourseFilter] = useState('all');
   const [gradeFilter, setGradeFilter] = useState('all');
@@ -128,11 +131,11 @@ export default function GradesPage() {
             <div className="flex gap-1 bg-white/5 rounded-xl p-1">
               <button onClick={() => setGpaPeriod('current')}
                 className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${gpaPeriod === 'current' ? 'bg-white/10 text-white' : 'text-white/40'}`}>
-                This Semester
+                Current Grades
               </button>
-              <button onClick={() => setGpaPeriod('year')}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${gpaPeriod === 'year' ? 'bg-white/10 text-white' : 'text-white/40'}`}>
-                Full Year
+              <button onClick={() => setGpaPeriod('withzeros')}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${gpaPeriod === 'withzeros' ? 'bg-white/10 text-white' : 'text-white/40'}`}>
+                With Missing as 0
               </button>
             </div>
           )}
@@ -152,25 +155,33 @@ export default function GradesPage() {
                   <div className="flex items-center justify-between mb-4">
                     <h2 className="text-2xl font-bold">{student.name.split(' ')[0]}</h2>
                     {(() => {
-                      const gpa = gpaPeriod === 'current' ? (student.semesterGpa || student.yearGpa) : student.yearGpa;
+                      const gpa = gpaPeriod === 'current' ? student.yearGpa : student.semesterGpa;
+                      const label = gpaPeriod === 'current' ? 'GPA' : 'GPA (w/ zeros)';
                       return gpa ? (
                         <div className="text-right">
-                          <span className="text-sm text-white/30">{gpaPeriod === 'current' ? (student.currentPeriod || 'Semester') : 'Year'} GPA</span>
+                          <span className="text-sm text-white/30">{label}</span>
                           <p className="text-3xl font-bold" style={{ color: gpa >= 3.0 ? '#22C55E' : gpa >= 2.0 ? '#FBBF24' : '#EF4444' }}>{gpa.toFixed(2)}</p>
+                          {gpaPeriod === 'withzeros' && student.yearGpa && gpa < student.yearGpa && (
+                            <p className="text-sm text-red-400">↓ {(student.yearGpa - gpa).toFixed(2)} from missing work</p>
+                          )}
                         </div>
                       ) : null;
                     })()}
                   </div>
                   <div className="space-y-1.5 mb-4">
-                    {graded.sort((a, b) => GRADE_ORDER.indexOf(a.grade!) - GRADE_ORDER.indexOf(b.grade!)).map((c) => (
-                      <div key={c.courseId} className="flex items-center gap-2">
-                        <span className="text-sm text-white/30 w-24 truncate">{cleanName(c.courseName).split(' - ')[0]}</span>
-                        <div className="flex-1 h-2 bg-white/5 rounded-full overflow-hidden">
-                          <div className="h-full rounded-full" style={{ width: `${Math.min(c.score || 0, 100)}%`, background: getColor(c.grade) }} />
+                    {graded.sort((a, b) => GRADE_ORDER.indexOf(a.grade!) - GRADE_ORDER.indexOf(b.grade!)).map((c) => {
+                      const displayGrade = gpaPeriod === 'withzeros' ? (c.finalGrade || c.grade) : c.grade;
+                      const displayScore = gpaPeriod === 'withzeros' ? (c.finalScore || c.score) : c.score;
+                      return (
+                        <div key={c.courseId} className="flex items-center gap-2">
+                          <span className="text-sm text-white/30 w-24 truncate">{cleanName(c.courseName).split(' - ')[0]}</span>
+                          <div className="flex-1 h-2 bg-white/5 rounded-full overflow-hidden">
+                            <div className="h-full rounded-full" style={{ width: `${Math.min(displayScore || 0, 100)}%`, background: getColor(displayGrade) }} />
+                          </div>
+                          <span className="text-sm font-bold w-6" style={{ color: getColor(displayGrade) }}>{displayGrade}</span>
                         </div>
-                        <span className="text-sm font-bold w-6" style={{ color: getColor(c.grade) }}>{c.grade}</span>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                   <div className="flex gap-2">
                     {low.length > 0 && <span className="px-2 py-1 rounded-lg bg-red-500/15 text-red-400 text-sm font-bold">📉 {low.length} low</span>}
