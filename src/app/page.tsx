@@ -30,24 +30,7 @@ export default function Home() {
     });
   }, []);
 
-  // Load selected font dynamically
-  useEffect(() => {
-    if (!config?.fontPrimary) return;
-    const fontName = config.fontPrimary;
-    // Load from Google Fonts
-    const linkId = 'dynamic-font';
-    let link = document.getElementById(linkId) as HTMLLinkElement | null;
-    if (!link) {
-      link = document.createElement('link');
-      link.id = linkId;
-      link.rel = 'stylesheet';
-      document.head.appendChild(link);
-    }
-    link.href = `https://fonts.googleapis.com/css2?family=${fontName.replace(/ /g, '+')}:wght@300;400;500;600;700&display=swap`;
-    // Apply to root so it overrides Tailwind
-    document.documentElement.style.setProperty('--dynamic-font', `"${fontName}", sans-serif`);
-    document.body.style.fontFamily = `"${fontName}", sans-serif`;
-  }, [config?.fontPrimary]);
+  // Font and size are now handled globally by GlobalSettings component
 
   // Filter by visibility settings
   const visibility: Record<string, boolean> = {};

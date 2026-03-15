@@ -3,6 +3,7 @@ import { Outfit } from 'next/font/google';
 import './globals.css';
 import { FamilyProvider } from '@/components/FamilyContext';
 import FamilyPicker from '@/components/FamilyPicker';
+import GlobalSettings from '@/components/GlobalSettings';
 
 const outfit = Outfit({
   subsets: ['latin'],
@@ -24,6 +25,7 @@ export default function RootLayout({
     <html lang="en" className={outfit.variable}>
       <body style={{ fontFamily: 'var(--dynamic-font, var(--font-outfit), sans-serif)' }}>
         <FamilyProvider>
+          <GlobalSettings />
           <FamilyPicker />
           {children}
         </FamilyProvider>
