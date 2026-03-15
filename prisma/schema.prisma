@@ -284,6 +284,9 @@ model TodoItem {
   dollarAmount  Float?
   paidStatus    String?  @default("none")
   paidAt        String?
+  paidMethod    String?
+  paidBy        String?
+  paidNote      String?
   exemptFromCap Int?     @default(0)
   sortOrder    Int      @default(0)
   createdAt    DateTime @default(now())

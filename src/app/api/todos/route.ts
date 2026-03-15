@@ -67,8 +67,12 @@ export async function PUT(request: NextRequest) {
   }
   if (paidStatus) {
     updates.paidStatus = paidStatus;
-    if (paidStatus === 'paid') updates.paidAt = new Date().toISOString();
+    if (paidStatus === 'paid' && !body.paidAt) updates.paidAt = new Date().toISOString();
   }
+  if (body.paidAt !== undefined) updates.paidAt = body.paidAt;
+  if (body.paidMethod !== undefined) updates.paidMethod = body.paidMethod;
+  if (body.paidBy !== undefined) updates.paidBy = body.paidBy;
+  if (body.paidNote !== undefined) updates.paidNote = body.paidNote;
   if (body.assignedTo !== undefined) updates.assignedTo = body.assignedTo;
   if (title !== undefined) updates.title = title;
   if (description !== undefined) updates.description = description;

@@ -20,6 +20,9 @@ interface TodoItem {
   dollarAmount: number | null;
   paidStatus: string | null;
   paidAt: string | null;
+  paidMethod: string | null;
+  paidBy: string | null;
+  paidNote: string | null;
   exemptFromCap: number | null;
 }
 
@@ -27,6 +30,7 @@ const COLUMNS = [
   { id: 'todo', label: 'To Do', icon: '📋', color: '#6366F1', bg: 'bg-indigo-500/10', border: 'border-indigo-500/20' },
   { id: 'in-progress', label: 'In Progress', icon: '⚡', color: '#F59E0B', bg: 'bg-amber-500/10', border: 'border-amber-500/20' },
   { id: 'done', label: 'Done', icon: '✅', color: '#10B981', bg: 'bg-emerald-500/10', border: 'border-emerald-500/20' },
+  { id: 'paid', label: 'Paid', icon: '💸', color: '#8B5CF6', bg: 'bg-violet-500/10', border: 'border-violet-500/20' },
 ];
 
 export default function TodosPage() {
@@ -51,6 +55,11 @@ export default function TodosPage() {
   const [bulkResult, setBulkResult] = useState('');
   const [isParent, setIsParent] = useState(false);
   const [dragOverCol, setDragOverCol] = useState<string | null>(null);
+  const [paymentModal, setPaymentModal] = useState<{ taskId: string; amount: number } | null>(null);
+  const [payMethod, setPayMethod] = useState('Step');
+  const [payDate, setPayDate] = useState(new Date().toISOString().split('T')[0]);
+  const [payBy, setPayBy] = useState('');
+  const [payNote, setPayNote] = useState('');
 
   const fetchTodos = useCallback(async () => {
     if (!currentMember) return;
@@ -152,6 +161,18 @@ export default function TodosPage() {
   const payoutProgress = Math.min((myPendingPayout / minPayout) * 100, 100);
   const canGetPaid = myPendingPayout >= minPayout;
 
+  // Total paid all time
+  const myTotalPaid = todos.filter((t) =>
+    t.assignedTo === currentMember?.name && t.dollarAmount && t.paidStatus === 'paid'
+  ).reduce((s, t) => s + (t.dollarAmount || 0), 0);
+
+  // This month paid
+  const thisMonth = new Date().toISOString().slice(0, 7);
+  const myMonthPaid = todos.filter((t) =>
+    t.assignedTo === currentMember?.name && t.dollarAmount && t.paidStatus === 'paid' &&
+    (t.paidAt || t.completedAt || t.createdAt).slice(0, 7) === thisMonth
+  ).reduce((s, t) => s + (t.dollarAmount || 0), 0);
+
   // Unclaimed tasks
   const unclaimedTasks = todos.filter((t) => t.assignedTo === 'unclaimed' && t.status !== 'archived');
 
@@ -179,10 +200,44 @@ export default function TodosPage() {
       const item = todos.find((t) => t.id === dragItem);
       if (item) {
         const canDrag = item.assignedTo === currentMember?.name || item.createdBy === currentMember?.name;
-        if (canDrag) handleStatusChange(dragItem, colId);
+        if (canDrag) {
+          if (colId === 'paid' && item.dollarAmount) {
+            // Show payment modal
+            setPaymentModal({ taskId: dragItem, amount: item.dollarAmount });
+            setPayDate(new Date().toISOString().split('T')[0]);
+            setPayBy(currentMember?.name || '');
+            setPayMethod('Step');
+            setPayNote('');
+          } else if (colId === 'paid') {
+            // No dollar amount, just mark as paid
+            handleStatusChange(dragItem, 'done');
+            fetch('/api/todos', { method: 'PUT', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ id: dragItem, paidStatus: 'paid' }) }).then(() => fetchTodos());
+          } else {
+            handleStatusChange(dragItem, colId);
+          }
+        }
       }
     }
     setDragItem(null); setDragOverCol(null);
+  };
+
+  const handleConfirmPayment = async () => {
+    if (!paymentModal) return;
+    await fetch('/api/todos', {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        id: paymentModal.taskId, paidStatus: 'paid',
+        paidAt: payDate, paidMethod: payMethod, paidBy: payBy, paidNote: payNote,
+      }),
+    });
+    // Also move to done if not already
+    await fetch('/api/todos', {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: paymentModal.taskId, status: 'done' }),
+    });
+    setPaymentModal(null);
+    fetchTodos();
   };
 
   // Filter based on tab
@@ -192,12 +247,18 @@ export default function TodosPage() {
     ? todos.filter((t) => t.createdBy === currentMember?.name && t.assignedTo !== currentMember?.name && t.status !== 'archived')
     : [];
 
+  // For the paid column, show tasks where paidStatus is 'paid'
+  const getColumnItems = (status: string) => {
+    if (status === 'paid') return activeTodos.filter((t) => t.paidStatus === 'paid');
+    if (status === 'done') return activeTodos.filter((t) => t.status === 'done' && t.paidStatus !== 'paid');
+    return activeTodos.filter((t) => t.status === status && t.paidStatus !== 'paid');
+  };
+
   const archivedTodos = todos
     .filter((t) => t.status === 'archived' && (t.assignedTo === currentMember?.name || t.createdBy === currentMember?.name))
     .sort((a, b) => new Date(b.completedAt || b.createdAt).getTime() - new Date(a.completedAt || a.createdAt).getTime());
 
-  const doneCount = todos.filter((t) => t.status === 'done' && (t.assignedTo === currentMember?.name || t.createdBy === currentMember?.name)).length;
-  const getColumnItems = (status: string) => activeTodos.filter((t) => t.status === status);
+  const doneCount = todos.filter((t) => t.status === 'done' && t.paidStatus !== 'paid' && (t.assignedTo === currentMember?.name || t.createdBy === currentMember?.name)).length;
 
   const formatDate = (d: string) => new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   const formatDateLong = (d: string) => new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
@@ -336,25 +397,43 @@ export default function TodosPage() {
         </AnimatePresence>
 
         {/* Tabs */}
-        {/* Payout progress bar */}
-        {myPendingPayout > 0 && (
-          <div className="glass rounded-2xl p-4 mb-6">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs text-white/40">💰 Payout progress</span>
-              <span className={`text-xs font-bold ${canGetPaid ? 'text-emerald-400' : 'text-amber-400'}`}>
-                ${myPendingPayout.toFixed(2)} / ${minPayout.toFixed(2)}
-              </span>
+        {/* Earnings display */}
+        {(myPendingPayout > 0 || myTotalPaid > 0) && (
+          <div className="glass rounded-2xl p-5 mb-6">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+              <div className="text-center">
+                <p className="text-white/30 text-xs uppercase tracking-wider mb-1">Pending Payout</p>
+                <p className={`text-3xl font-bold ${canGetPaid ? 'text-emerald-400' : 'text-amber-400'}`}>
+                  ${myPendingPayout.toFixed(2)}
+                </p>
+              </div>
+              <div className="text-center">
+                <p className="text-white/30 text-xs uppercase tracking-wider mb-1">Total Paid</p>
+                <p className="text-3xl font-bold text-violet-400">${myTotalPaid.toFixed(2)}</p>
+              </div>
+              <div className="text-center">
+                <p className="text-white/30 text-xs uppercase tracking-wider mb-1">This Month</p>
+                <p className="text-3xl font-bold text-white/60">${myMonthPaid.toFixed(2)}</p>
+              </div>
+              <div className="text-center">
+                <p className="text-white/30 text-xs uppercase tracking-wider mb-1">Active Tasks</p>
+                <p className="text-3xl font-bold text-white/40">${myActiveAmount.toFixed(2)}</p>
+              </div>
             </div>
-            <div className="h-3 bg-white/5 rounded-full overflow-hidden">
+
+            {/* Payout progress bar */}
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-[10px] text-white/30">Payout progress</span>
+              <span className="text-[10px] text-white/30">${myPendingPayout.toFixed(2)} / ${minPayout.toFixed(2)}</span>
+            </div>
+            <div className="h-2.5 bg-white/5 rounded-full overflow-hidden">
               <motion.div
                 className={`h-full rounded-full ${canGetPaid ? 'bg-gradient-to-r from-emerald-500 to-green-400' : 'bg-gradient-to-r from-amber-500 to-yellow-400'}`}
                 initial={{ width: 0 }} animate={{ width: `${payoutProgress}%` }} transition={{ duration: 0.8 }}
               />
             </div>
-            {canGetPaid ? (
-              <p className="text-emerald-400 text-xs mt-2 font-medium">🎉 Ready for payout! Ask a parent to send via Step.</p>
-            ) : (
-              <p className="text-white/25 text-xs mt-2">${(minPayout - myPendingPayout).toFixed(2)} more to reach payout minimum</p>
+            {canGetPaid && (
+              <p className="text-emerald-400 text-xs mt-2 font-medium text-center">🎉 Ready for payout! Drag tasks to the Paid column.</p>
             )}
           </div>
         )}
@@ -487,10 +566,14 @@ export default function TodosPage() {
                           <div className="flex items-center gap-2 mt-3 flex-wrap">
                             {item.dollarAmount && (
                               <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
+                                col.id === 'paid' ? 'bg-violet-500/15 text-violet-400' :
                                 item.paidStatus === 'paid' ? 'bg-emerald-500/15 text-emerald-400 line-through' :
                                 col.id === 'done' ? 'bg-emerald-500/15 text-emerald-400' : 'bg-amber-500/10 text-amber-400'}`}>
-                                💰 ${item.dollarAmount.toFixed(2)}{item.paidStatus === 'paid' ? ' ✓ paid' : ''}{item.exemptFromCap ? ' ⭐' : ''}
+                                💰 ${item.dollarAmount.toFixed(2)}{col.id === 'paid' ? ` via ${item.paidMethod || 'Step'}` : ''}{item.exemptFromCap ? ' ⭐' : ''}
                               </span>
+                            )}
+                            {col.id === 'paid' && item.paidBy && (
+                              <span className="text-[10px] text-white/20">by {item.paidBy}</span>
                             )}
                             {item.dueDate && (
                               <span className={`text-[10px] px-2 py-0.5 rounded-full ${
@@ -783,6 +866,71 @@ export default function TodosPage() {
           </div>
         )}
       </div>
+
+      {/* Payment confirmation modal */}
+      <AnimatePresence>
+        {paymentModal && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
+            onClick={() => setPaymentModal(null)}>
+            <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 20 }}
+              className="w-full max-w-md bg-[#1a1a2e] border border-white/10 rounded-2xl p-6 space-y-5 shadow-2xl"
+              onClick={(e) => e.stopPropagation()}>
+
+              <div className="text-center">
+                <div className="text-4xl mb-2">💸</div>
+                <h2 className="text-xl font-bold">Confirm Payment</h2>
+                <p className="text-3xl font-bold text-emerald-400 mt-2">${paymentModal.amount.toFixed(2)}</p>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="text-sm text-white/50 block mb-1">Payment Method</label>
+                  <select value={payMethod} onChange={(e) => setPayMethod(e.target.value)}
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm [&>option]:bg-gray-900">
+                    <option value="Step">📱 Step</option>
+                    <option value="Cash">💵 Cash</option>
+                    <option value="Other">🔄 Other</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-sm text-white/50 block mb-1">Payment Date</label>
+                  <input type="date" value={payDate} onChange={(e) => setPayDate(e.target.value)}
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm [color-scheme:dark]" />
+                </div>
+
+                <div>
+                  <label className="text-sm text-white/50 block mb-1">Paid By</label>
+                  <select value={payBy} onChange={(e) => setPayBy(e.target.value)}
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm [&>option]:bg-gray-900">
+                    <option value="">Select...</option>
+                    {members.map((m) => (
+                      <option key={m.id} value={m.name}>{m.emoji} {m.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-sm text-white/50 block mb-1">Note (optional)</label>
+                  <input type="text" value={payNote} onChange={(e) => setPayNote(e.target.value)}
+                    placeholder="e.g., Sent via Step March 15"
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm placeholder-white/25 focus:outline-none" />
+                </div>
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button onClick={handleConfirmPayment}
+                  className="flex-1 py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-bold text-sm">
+                  ✅ Confirm Payment
+                </button>
+                <button onClick={() => setPaymentModal(null)}
+                  className="px-6 py-3 rounded-xl bg-white/5 text-white/40 text-sm">Cancel</button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
