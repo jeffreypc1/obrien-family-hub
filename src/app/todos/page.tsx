@@ -122,8 +122,14 @@ export default function TodosPage() {
         const gpa = student.yearGpa;
         const tier = multipliers.find((m) => gpa >= m.minGpa && gpa <= m.maxGpa);
 
-        // Count missing (we don't have detail here, use 0 as default)
-        const missingCount = 0; // Would need detail API call
+        // Check for parent override on missing count
+        let overrides: Array<{ studentName: string; overrideCount: number }> = [];
+        try { overrides = JSON.parse(adminData.config.missingOverridesJson || '[]'); } catch {}
+        const override = overrides.find((o: { studentName: string }) =>
+          currentMember?.name && o.studentName.toLowerCase().includes(currentMember.name.toLowerCase().split(' ')[0].toLowerCase())
+        );
+
+        const missingCount = override ? override.overrideCount : 0; // Default 0, override if parent set one
         const missingTier = penalties.find((p) => missingCount >= p.minMissing && missingCount <= p.maxMissing);
 
         if (tier) {

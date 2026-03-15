@@ -1010,11 +1010,17 @@ function ChoreCollectionsAdmin({ members, currentMember }: { members: Array<{ id
 interface GpaMultiplier { minGpa: number; maxGpa: number; multiplier: number; label: string; }
 interface MissingPenalty { minMissing: number; maxMissing: number; adjustment: number; label: string; }
 
+interface MissingOverride { studentName: string; overrideCount: number; weekOf: string; reason: string; }
+
 function GradeIncentivesAdmin({ adminPin }: { adminPin: string }) {
   const [multipliers, setMultipliers] = useState<GpaMultiplier[]>([]);
   const [penalties, setPenalties] = useState<MissingPenalty[]>([]);
+  const [overrides, setOverrides] = useState<MissingOverride[]>([]);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState('');
+  const [newOverrideName, setNewOverrideName] = useState('');
+  const [newOverrideCount, setNewOverrideCount] = useState('0');
+  const [newOverrideReason, setNewOverrideReason] = useState('');
 
   useEffect(() => {
     fetch('/api/admin').then((r) => r.json()).then((data) => {
@@ -1024,6 +1030,17 @@ function GradeIncentivesAdmin({ adminPin }: { adminPin: string }) {
       if (data.config?.missingPenaltiesJson) {
         try { setPenalties(JSON.parse(data.config.missingPenaltiesJson)); } catch {}
       }
+      if (data.config?.missingOverridesJson) {
+        try {
+          const ov = JSON.parse(data.config.missingOverridesJson);
+          // Filter out expired overrides (older than 7 days)
+          const now = new Date();
+          setOverrides(ov.filter((o: MissingOverride) => {
+            const weekDate = new Date(o.weekOf);
+            return (now.getTime() - weekDate.getTime()) < 7 * 86400000;
+          }));
+        } catch {}
+      }
     });
   }, []);
 
@@ -1031,7 +1048,7 @@ function GradeIncentivesAdmin({ adminPin }: { adminPin: string }) {
     setSaving(true);
     await fetch('/api/admin', {
       method: 'PUT', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ pin: adminPin, config: { gradeMultipliersJson: JSON.stringify(multipliers), missingPenaltiesJson: JSON.stringify(penalties) } }),
+      body: JSON.stringify({ pin: adminPin, config: { gradeMultipliersJson: JSON.stringify(multipliers), missingPenaltiesJson: JSON.stringify(penalties), missingOverridesJson: JSON.stringify(overrides) } }),
     });
     setSaving(false);
     setMsg('✓ Saved!');
@@ -1105,6 +1122,68 @@ function GradeIncentivesAdmin({ adminPin }: { adminPin: string }) {
           ))}
           <button onClick={() => setPenalties((prev) => [...prev, { minMissing: 0, maxMissing: 0, adjustment: 0, label: '' }])}
             className="text-sm text-white/25 hover:text-white/50">+ Add tier</button>
+        </div>
+      </div>
+
+      {/* Weekly Override */}
+      <div>
+        <h4 className="text-sm font-bold text-white/50 mb-3">🔄 Weekly Missing Assignment Override</h4>
+        <p className="text-sm text-white/25 mb-4">If a teacher hasn&apos;t recorded assignments on time, override the missing count for this week. Overrides expire after 7 days.</p>
+
+        {/* Active overrides */}
+        {overrides.length > 0 && (
+          <div className="space-y-2 mb-4">
+            {overrides.map((o, i) => (
+              <div key={i} className="flex items-center gap-3 p-3 bg-amber-500/5 border border-amber-500/10 rounded-xl">
+                <span className="text-lg">🔄</span>
+                <div className="flex-1">
+                  <span className="text-sm font-medium">{o.studentName}</span>
+                  <span className="text-sm text-white/30 ml-2">→ Treat as {o.overrideCount} missing</span>
+                  {o.reason && <span className="text-sm text-white/20 block">&ldquo;{o.reason}&rdquo;</span>}
+                </div>
+                <span className="text-sm text-white/15">Week of {new Date(o.weekOf).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
+                <button onClick={() => setOverrides((prev) => prev.filter((_, j) => j !== i))}
+                  className="text-white/15 hover:text-red-400 text-sm">✕</button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Add new override */}
+        <div className="flex gap-3 flex-wrap items-end">
+          <div>
+            <label className="text-sm text-white/25 block mb-1">Student</label>
+            <input type="text" value={newOverrideName} onChange={(e) => setNewOverrideName(e.target.value)}
+              placeholder="Clara, Eleanor..."
+              className="bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-white/20 focus:outline-none w-32" />
+          </div>
+          <div>
+            <label className="text-sm text-white/25 block mb-1">Override to</label>
+            <input type="number" min="0" value={newOverrideCount} onChange={(e) => setNewOverrideCount(e.target.value)}
+              className="bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none w-20" />
+            <span className="text-sm text-white/20 ml-1">missing</span>
+          </div>
+          <div>
+            <label className="text-sm text-white/25 block mb-1">Reason (optional)</label>
+            <input type="text" value={newOverrideReason} onChange={(e) => setNewOverrideReason(e.target.value)}
+              placeholder="Teacher didn't record yet"
+              className="bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-white/20 focus:outline-none w-56" />
+          </div>
+          <button onClick={() => {
+            if (!newOverrideName.trim()) return;
+            const monday = new Date();
+            monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7));
+            setOverrides((prev) => [...prev, {
+              studentName: newOverrideName.trim(),
+              overrideCount: parseInt(newOverrideCount) || 0,
+              weekOf: monday.toISOString().split('T')[0],
+              reason: newOverrideReason.trim(),
+            }]);
+            setNewOverrideName(''); setNewOverrideCount('0'); setNewOverrideReason('');
+          }} disabled={!newOverrideName.trim()}
+            className="px-4 py-2 rounded-lg bg-amber-500/15 text-amber-400 text-sm font-medium disabled:opacity-30">
+            Add Override
+          </button>
         </div>
       </div>
 
