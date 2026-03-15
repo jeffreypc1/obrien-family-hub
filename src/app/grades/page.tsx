@@ -9,10 +9,15 @@ interface CourseGrade { courseId: number; courseName: string; grade: string | nu
 interface AssignmentDetail {
   name: string; score: number | null; pointsPossible: number; percentage: number | null; grade: string | null;
   late: boolean; missing: boolean; submitted: boolean; dueAt: string | null; gradedAt: string | null; submittedAt: string | null;
+  assignmentGroupName: string | null; assignmentGroupWeight: number;
 }
-interface CourseDetail extends CourseGrade { assignments: AssignmentDetail[]; }
+interface CourseDetail extends CourseGrade {
+  assignments: AssignmentDetail[];
+  assignmentGroups: Array<{ name: string; weight: number }>;
+}
+interface GradingPeriod { id: number; title: string; start_date: string; end_date: string; }
 interface StudentOverview { id: number; name: string; courses: CourseGrade[]; gpa: number | null; }
-interface StudentDetail { student: { id: number; name: string }; courses: CourseDetail[]; pastCourses: CourseGrade[]; lastUpdated: string; }
+interface StudentDetail { student: { id: number; name: string }; courses: CourseDetail[]; pastCourses: CourseGrade[]; gradingPeriods: GradingPeriod[]; lastUpdated: string; }
 
 const GRADE_COLORS: Record<string, string> = {
   'A+': '#22C55E', 'A': '#22C55E', 'A-': '#4ADE80', 'B+': '#60A5FA', 'B': '#60A5FA', 'B-': '#93C5FD',
@@ -34,6 +39,7 @@ export default function GradesPage() {
   const [dateFilter, setDateFilter] = useState('all');
   const [courseFilter, setCourseFilter] = useState('all');
   const [gradeFilter, setGradeFilter] = useState('all');
+  const [categoryFilter, setCategoryFilter] = useState('all');
   const [sortBy, setSortBy] = useState<SortKey>('grade-high');
   const [expandedCourse, setExpandedCourse] = useState<number | null>(null);
   const [lastRefresh, setLastRefresh] = useState<string>('');
@@ -318,19 +324,38 @@ export default function GradesPage() {
                     return (cd.assignments || []).map((a) => ({ ...a, courseName: cleanName(c.courseName).split(' - ')[0], courseGrade: c.grade }));
                   });
 
+                  // Get unique categories
+                  const categories = [...new Set(allAssignments.map((a) => a.assignmentGroupName).filter(Boolean))] as string[];
+
+                  // Get grading periods
+                  const gPeriods = detail.gradingPeriods || [];
+
                   // Apply filters
                   const now = new Date();
                   const filtered = allAssignments.filter((a) => {
                     if (courseFilter !== 'all' && a.courseName !== courseFilter) return false;
+                    if (categoryFilter !== 'all' && a.assignmentGroupName !== categoryFilter) return false;
                     if (gradeFilter === 'passing' && a.percentage !== null && a.percentage < 70) return false;
                     if (gradeFilter === 'failing' && (a.percentage === null || a.percentage >= 70)) return false;
                     if (gradeFilter === 'missing' && !a.missing) return false;
                     if (gradeFilter === 'late' && !a.late) return false;
-                    if (dateFilter !== 'all' && a.gradedAt) {
-                      const d = new Date(a.gradedAt);
+                    const aDate = a.gradedAt || a.dueAt;
+                    if (dateFilter !== 'all' && aDate) {
+                      const d = new Date(aDate);
                       if (dateFilter === '7d' && now.getTime() - d.getTime() > 7 * 86400000) return false;
+                      if (dateFilter === '14d' && now.getTime() - d.getTime() > 14 * 86400000) return false;
                       if (dateFilter === '30d' && now.getTime() - d.getTime() > 30 * 86400000) return false;
                       if (dateFilter === '90d' && now.getTime() - d.getTime() > 90 * 86400000) return false;
+                      // Semester filters
+                      if (dateFilter.startsWith('sem-')) {
+                        const semId = parseInt(dateFilter.split('-')[1]);
+                        const period = gPeriods.find((p) => p.id === semId);
+                        if (period) {
+                          const start = new Date(period.start_date);
+                          const end = new Date(period.end_date);
+                          if (d < start || d > end) return false;
+                        }
+                      }
                     }
                     return true;
                   });
@@ -373,22 +398,57 @@ export default function GradesPage() {
                   return (
                     <div className="space-y-6">
                       {/* Filters */}
-                      <div className="flex gap-3 flex-wrap">
-                        <select value={dateFilter} onChange={(e) => setDateFilter(e.target.value)}
-                          className="bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white [&>option]:bg-gray-900">
-                          <option value="all">All Time</option><option value="7d">Last 7 Days</option>
-                          <option value="30d">Last 30 Days</option><option value="90d">Last 90 Days</option>
-                        </select>
-                        <select value={courseFilter} onChange={(e) => setCourseFilter(e.target.value)}
-                          className="bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white [&>option]:bg-gray-900">
-                          <option value="all">All Courses</option>
-                          {courseNames.map((n) => <option key={n} value={n}>{n}</option>)}
-                        </select>
-                        <select value={gradeFilter} onChange={(e) => setGradeFilter(e.target.value)}
-                          className="bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white [&>option]:bg-gray-900">
-                          <option value="all">All Assignments</option><option value="passing">Passing Only (70%+)</option>
-                          <option value="failing">Failing Only (&lt;70%)</option><option value="missing">Missing Only</option><option value="late">Late Only</option>
-                        </select>
+                      <div className="glass rounded-xl p-4 space-y-3">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-xs text-white/40 font-medium">🔍 Filters</span>
+                          {(dateFilter !== 'all' || courseFilter !== 'all' || gradeFilter !== 'all' || categoryFilter !== 'all') && (
+                            <button onClick={() => { setDateFilter('all'); setCourseFilter('all'); setGradeFilter('all'); setCategoryFilter('all'); }}
+                              className="text-[10px] text-red-400/60 hover:text-red-400">Clear all</button>
+                          )}
+                        </div>
+                        <div className="flex gap-3 flex-wrap">
+                          <div>
+                            <label className="text-[10px] text-white/25 block mb-1">Time Period</label>
+                            <select value={dateFilter} onChange={(e) => setDateFilter(e.target.value)}
+                              className="bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white [&>option]:bg-gray-900">
+                              <option value="all">All Time</option>
+                              <option value="7d">Last 7 Days</option>
+                              <option value="14d">Last 2 Weeks</option>
+                              <option value="30d">Last 30 Days</option>
+                              <option value="90d">Last 90 Days</option>
+                              {gPeriods.map((p) => (
+                                <option key={p.id} value={`sem-${p.id}`}>📅 {p.title}</option>
+                              ))}
+                            </select>
+                          </div>
+                          <div>
+                            <label className="text-[10px] text-white/25 block mb-1">Course</label>
+                            <select value={courseFilter} onChange={(e) => setCourseFilter(e.target.value)}
+                              className="bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white [&>option]:bg-gray-900">
+                              <option value="all">All Courses</option>
+                              {courseNames.map((n) => <option key={n} value={n}>{n}</option>)}
+                            </select>
+                          </div>
+                          <div>
+                            <label className="text-[10px] text-white/25 block mb-1">Category</label>
+                            <select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)}
+                              className="bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white [&>option]:bg-gray-900">
+                              <option value="all">All Categories</option>
+                              {categories.map((c) => <option key={c} value={c}>{c}</option>)}
+                            </select>
+                          </div>
+                          <div>
+                            <label className="text-[10px] text-white/25 block mb-1">Status</label>
+                            <select value={gradeFilter} onChange={(e) => setGradeFilter(e.target.value)}
+                              className="bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white [&>option]:bg-gray-900">
+                              <option value="all">All</option>
+                              <option value="passing">✅ Passing (70%+)</option>
+                              <option value="failing">❌ Failing (&lt;70%)</option>
+                              <option value="missing">⚠️ Missing</option>
+                              <option value="late">🕐 Late</option>
+                            </select>
+                          </div>
+                        </div>
                       </div>
 
                       {/* Summary cards */}
@@ -480,6 +540,85 @@ export default function GradesPage() {
                           ))}
                         </div>
                       </div>
+
+                      {/* Category performance */}
+                      {categories.length > 1 && (
+                        <div className="glass rounded-xl p-5">
+                          <h3 className="text-sm font-bold text-white/50 mb-4">🏷️ Performance by Category</h3>
+                          <div className="space-y-3">
+                            {categories.map((cat) => {
+                              const catAssignments = graded.filter((a) => a.assignmentGroupName === cat);
+                              if (catAssignments.length === 0) return null;
+                              const avg = catAssignments.reduce((s, a) => s + (a.percentage || 0), 0) / catAssignments.length;
+                              const weight = catAssignments[0]?.assignmentGroupWeight || 0;
+                              return (
+                                <div key={cat} className="flex items-center gap-3">
+                                  <span className="text-xs text-white/40 w-40 truncate text-right">{cat}{weight > 0 ? ` (${weight}%)` : ''}</span>
+                                  <div className="flex-1 h-6 bg-white/5 rounded-lg overflow-hidden relative">
+                                    <motion.div className="h-full rounded-lg"
+                                      initial={{ width: 0 }} animate={{ width: `${avg}%` }}
+                                      transition={{ duration: 0.6 }}
+                                      style={{ background: avg >= 80 ? '#22C55E80' : avg >= 70 ? '#FBBF2480' : '#EF444480' }} />
+                                    <span className="absolute inset-0 flex items-center justify-center text-xs font-bold text-white">{avg.toFixed(1)}%</span>
+                                  </div>
+                                  <span className="text-[10px] text-white/20 w-8">{catAssignments.length}</span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Semester comparison */}
+                      {gPeriods.length > 1 && (
+                        <div className="glass rounded-xl p-5">
+                          <h3 className="text-sm font-bold text-white/50 mb-4">📅 Semester Comparison</h3>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {gPeriods.map((period) => {
+                              const semAssignments = allAssignments.filter((a) => {
+                                const d = a.gradedAt || a.dueAt;
+                                if (!d) return false;
+                                const date = new Date(d);
+                                return date >= new Date(period.start_date) && date <= new Date(period.end_date);
+                              });
+                              const semGraded = semAssignments.filter((a) => a.percentage !== null);
+                              const semAvg = semGraded.length ? semGraded.reduce((s, a) => s + (a.percentage || 0), 0) / semGraded.length : 0;
+                              const semMissing = semAssignments.filter((a) => a.missing).length;
+                              const semLate = semAssignments.filter((a) => a.late).length;
+                              const semPerfect = semGraded.filter((a) => a.percentage === 100).length;
+
+                              return (
+                                <div key={period.id} className="p-4 bg-white/[0.02] rounded-xl">
+                                  <h4 className="font-bold text-sm mb-1">{period.title}</h4>
+                                  <p className="text-[10px] text-white/20 mb-3">
+                                    {new Date(period.start_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} – {new Date(period.end_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                                  </p>
+                                  <div className="grid grid-cols-2 gap-2 text-center">
+                                    <div>
+                                      <span className="text-2xl font-bold" style={{ color: semAvg >= 80 ? '#22C55E' : semAvg >= 70 ? '#FBBF24' : '#EF4444' }}>
+                                        {semAvg > 0 ? semAvg.toFixed(1) + '%' : '—'}
+                                      </span>
+                                      <span className="text-[10px] text-white/25 block">Average</span>
+                                    </div>
+                                    <div>
+                                      <span className="text-2xl font-bold text-white/50">{semGraded.length}</span>
+                                      <span className="text-[10px] text-white/25 block">Graded</span>
+                                    </div>
+                                    <div>
+                                      <span className="text-lg font-bold" style={{ color: semMissing > 0 ? '#EF4444' : '#22C55E' }}>{semMissing}</span>
+                                      <span className="text-[10px] text-white/25 block">Missing</span>
+                                    </div>
+                                    <div>
+                                      <span className="text-lg font-bold text-emerald-400">{semPerfect}</span>
+                                      <span className="text-[10px] text-white/25 block">Perfect</span>
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
 
                       {/* Assignment score distribution */}
                       <div className="glass rounded-xl p-5">

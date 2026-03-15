@@ -70,10 +70,24 @@ export async function GET(request: Request) {
         }))
         .sort((a, b) => a.courseName.localeCompare(b.courseName));
 
-      // Get submissions for each course
+      // Get grading periods for semester filtering
+      const gradingPeriods: Array<{ id: number; title: string; start_date: string; end_date: string }> = [];
+      if (currentCourses.length > 0) {
+        const gpData = await canvasFetch(`/courses/${currentCourses[0].courseId}/grading_periods`);
+        if (gpData?.grading_periods) gradingPeriods.push(...gpData.grading_periods);
+      }
+
+      // Get submissions for each course with assignment groups
       const courseDetails = await Promise.all(currentCourses.filter((c) => c.grade).slice(0, 8).map(async (course) => {
+        // Get assignment groups (categories)
+        const groups = await canvasFetch(`/courses/${course.courseId}/assignment_groups`) || [];
+        const groupMap: Record<number, { name: string; weight: number }> = {};
+        groups.forEach((g: { id: number; name: string; group_weight: number }) => {
+          groupMap[g.id] = { name: g.name, weight: g.group_weight || 0 };
+        });
+
         const submissions = await canvasFetch(
-          `/courses/${course.courseId}/students/submissions?student_ids[]=${sid}&per_page=50&include[]=assignment&order_by=graded_at`
+          `/courses/${course.courseId}/students/submissions?student_ids[]=${sid}&per_page=100&include[]=assignment&order_by=graded_at`
         ) || [];
 
         const assignments = submissions.map((s: Record<string, unknown>) => {
@@ -93,10 +107,12 @@ export async function GET(request: Request) {
             gradedAt: s.graded_at as string | null,
             submittedAt: s.submitted_at as string | null,
             assignmentGroup: (a.assignment_group_id as number) || null,
+            assignmentGroupName: groupMap[(a.assignment_group_id as number)]?.name || null,
+            assignmentGroupWeight: groupMap[(a.assignment_group_id as number)]?.weight || 0,
           };
         });
 
-        return { ...course, assignments };
+        return { ...course, assignments, assignmentGroups: Object.values(groupMap) };
       }));
 
       // Past semesters
@@ -112,7 +128,8 @@ export async function GET(request: Request) {
         .sort((a, b) => a.courseName.localeCompare(b.courseName));
 
       return NextResponse.json({
-        student, courses: courseDetails, pastCourses, lastUpdated: new Date().toISOString(),
+        student, courses: courseDetails, pastCourses, gradingPeriods,
+        lastUpdated: new Date().toISOString(),
       });
     }
 
