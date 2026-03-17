@@ -56,6 +56,7 @@ html { font-size: var(--base-font-size); }
 .glow-green { box-shadow: 0 0 60px rgba(16, 185, 129, 0.15), 0 0 120px rgba(16, 185, 129, 0.05); }
 .glow-orange { box-shadow: 0 0 60px rgba(245, 158, 11, 0.15), 0 0 120px rgba(245, 158, 11, 0.05); }
 .glow-cyan { box-shadow: 0 0 60px rgba(6, 182, 212, 0.15), 0 0 120px rgba(6, 182, 212, 0.05); }
+.glow-italian { box-shadow: 0 0 60px rgba(0, 146, 70, 0.15), 0 0 120px rgba(206, 43, 55, 0.05); }
 
 /* Cursor trail dot */
 .cursor-dot {

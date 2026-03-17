@@ -41,6 +41,11 @@ const THEMES: Record<string, { gradient: string; pattern: string; emoji: string 
     pattern: 'radial-gradient(circle at 40% 60%, rgba(245,158,11,0.06) 0%, transparent 50%)',
     emoji: '💡',
   },
+  italian: {
+    gradient: 'linear-gradient(135deg, rgba(0,80,40,0.2) 0%, rgba(60,10,10,0.12) 50%, rgba(0,60,30,0.15) 100%)',
+    pattern: 'radial-gradient(circle at 25% 75%, rgba(0,146,70,0.07) 0%, transparent 50%), radial-gradient(circle at 75% 25%, rgba(206,43,55,0.06) 0%, transparent 50%)',
+    emoji: '🇮🇹',
+  },
   shopping: {
     gradient: 'linear-gradient(135deg, rgba(10,50,30,0.2) 0%, rgba(10,40,25,0.15) 100%)',
     pattern: 'radial-gradient(circle at 50% 50%, rgba(34,197,94,0.06) 0%, transparent 50%)',

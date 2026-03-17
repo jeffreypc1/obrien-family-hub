@@ -28,6 +28,18 @@ export const FAMILY_APPS: FamilyApp[] = [
     status: 'live',
   },
   {
+    id: 'italian',
+    name: 'Learn Italian',
+    tagline: 'Listen. Learn. Win $100.',
+    description: '100 essential Italian vacation phrases with flash cards, audio pronunciation, and a $100 challenge quiz — get all 100 right in a row to win.',
+    url: '/italian',
+    icon: '🇮🇹',
+    gradient: 'from-green-500 via-white to-red-500',
+    glowClass: 'glow-green',
+    accentColor: '#009246',
+    status: 'live',
+  },
+  {
     id: 'german',
     name: 'Learn German',
     tagline: 'Watch. Read. Speak.',
