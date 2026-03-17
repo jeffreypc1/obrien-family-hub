@@ -208,6 +208,14 @@ export default function ItalianPage() {
   const [view, setView] = useState<ViewMode>('browse');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [fontSize, setFontSizeState] = useState(16);
+
+  // Load saved font size
+  useEffect(() => {
+    const saved = localStorage.getItem('italian-font-size');
+    if (saved) setFontSizeState(parseInt(saved));
+  }, []);
+  const updateFontSize = (s: number) => { setFontSizeState(s); localStorage.setItem('italian-font-size', String(s)); };
 
   // Flash card state
   const [flashIndex, setFlashIndex] = useState(0);
@@ -386,7 +394,7 @@ export default function ItalianPage() {
   // ─── Render ───────────────────────────────────────
 
   return (
-    <div className="min-h-screen relative">
+    <div className="min-h-screen relative" style={{ fontSize }}>
       <ThemedBackground theme="italian" />
 
       {/* Navigation Bar */}
@@ -415,9 +423,20 @@ export default function ItalianPage() {
               </button>
             ))}
           </div>
-          {currentMember && (
-            <span className="text-white/30 text-sm">{currentMember.emoji} {currentMember.name}</span>
-          )}
+          <div className="flex items-center gap-2">
+            <div className="flex items-center bg-white/5 rounded-xl overflow-hidden">
+              <button onClick={() => updateFontSize(Math.max(14, fontSize - 2))}
+                className="text-white/40 hover:text-white/70 hover:bg-white/10 transition-all font-bold px-2 py-1 text-sm"
+                title="Smaller">A−</button>
+              <span className="text-white/20 border-x border-white/5 px-1.5 py-1 text-[10px]">{fontSize}</span>
+              <button onClick={() => updateFontSize(Math.min(28, fontSize + 2))}
+                className="text-white/40 hover:text-white/70 hover:bg-white/10 transition-all font-bold px-2 py-1 text-sm"
+                title="Bigger">A+</button>
+            </div>
+            {currentMember && (
+              <span className="text-white/30 text-sm">{currentMember.emoji} {currentMember.name}</span>
+            )}
+          </div>
         </div>
       </div>
 

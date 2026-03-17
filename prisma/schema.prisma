@@ -46,6 +46,7 @@ model HubConfig {
   missingPenaltiesJson  String?
   missingOverridesJson  String?
   easterEggsJson        String?
+  expandedAppsJson      String?
   updatedAt             DateTime @updatedAt
 }
 
@@ -308,6 +309,50 @@ model TodoItem {
   createdAt    DateTime @default(now())
 }
 
+// ==================== CRUISE PLANNER ====================
+
+model CruiseDay {
+  id            String           @id @default(cuid())
+  dayNumber     Int
+  date          String
+  portName      String?
+  isSeaDay      Boolean          @default(false)
+  arrivalTime   String?
+  departureTime String?
+  description   String?
+  activities    CruiseActivity[]
+}
+
+model CruiseActivity {
+  id            String         @id @default(cuid())
+  dayId         String
+  day           CruiseDay      @relation(fields: [dayId], references: [id], onDelete: Cascade)
+  name          String
+  description   String?
+  startTime     String
+  endTime       String
+  cost          Float?
+  location      String?
+  type          String         @default("excursion")
+  isRecommended Boolean        @default(false)
+  sortOrder     Int            @default(0)
+  choices       CruiseChoice[]
+}
+
+model CruiseChoice {
+  id              String         @id @default(cuid())
+  activityId      String
+  activity        CruiseActivity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  userName        String
+  choice          String
+  customStartTime String?
+  customEndTime   String?
+  comment         String?
+  updatedAt       DateTime       @updatedAt
+
+  @@unique([activityId, userName])
+}
+
 // ==================== FAMILY MEMBERS (shared) ====================
 
 model FamilyMember {
@@ -316,5 +361,7 @@ model FamilyMember {
   emoji       String   @default("🎵")
   color       String   @default("#E91E8C")
   landingMode String   @default("classic")
+  pin         String?
+  role        String   @default("core")
   createdAt   DateTime @default(now())
 }

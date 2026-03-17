@@ -8,6 +8,8 @@ interface FamilyMember {
   emoji: string;
   color: string;
   landingMode?: string;
+  role?: string;
+  pin?: string | null;
 }
 
 interface FamilyContextType {

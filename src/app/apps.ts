@@ -28,6 +28,18 @@ export const FAMILY_APPS: FamilyApp[] = [
     status: 'live',
   },
   {
+    id: 'cruise',
+    name: 'Cruise Planner',
+    tagline: 'Plan. Drag. Sail.',
+    description: 'Plan our Enchanted Princess 7-night Mediterranean & Aegean cruise from Rome — choose excursions, pick restaurants, and coordinate with family.',
+    url: '/cruise',
+    icon: '🚢',
+    gradient: 'from-cyan-500 via-blue-500 to-indigo-500',
+    glowClass: 'glow-cyan',
+    accentColor: '#06B6D4',
+    status: 'live',
+  },
+  {
     id: 'italian',
     name: 'Learn Italian',
     tagline: 'Listen. Learn. Win $100.',

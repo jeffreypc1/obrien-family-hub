@@ -16,6 +16,7 @@ interface HubConfig {
   fontPrimary: string;
   appVisibilityJson?: string | null;
   appOverridesJson?: string | null;
+  expandedAppsJson?: string | null;
   requirePin?: number;
 }
 
@@ -43,12 +44,22 @@ export default function Home() {
     try { Object.assign(overrides, JSON.parse(config.appOverridesJson)); } catch {}
   }
 
-  const visibleApps = FAMILY_APPS.filter((a) => visibility[a.id] !== false).map((a) => ({
-    ...a,
-    name: overrides[a.id]?.name || a.name,
-    tagline: overrides[a.id]?.tagline || a.tagline,
-    description: overrides[a.id]?.description || a.description,
-  }));
+  // Parse expanded apps list
+  const expandedApps: string[] = [];
+  if (config?.expandedAppsJson) {
+    try { expandedApps.push(...JSON.parse(config.expandedAppsJson)); } catch {}
+  }
+  const isExpanded = currentMember?.role === 'expanded';
+
+  const visibleApps = FAMILY_APPS
+    .filter((a) => visibility[a.id] !== false)
+    .filter((a) => !isExpanded || expandedApps.includes(a.id)) // expanded members only see shared apps
+    .map((a) => ({
+      ...a,
+      name: overrides[a.id]?.name || a.name,
+      tagline: overrides[a.id]?.tagline || a.tagline,
+      description: overrides[a.id]?.description || a.description,
+    }));
   const liveApps = visibleApps.filter((a) => a.status === 'live');
   const comingSoon = visibleApps.filter((a) => a.status === 'coming-soon');
 

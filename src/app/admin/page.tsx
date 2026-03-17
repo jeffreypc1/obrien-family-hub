@@ -11,6 +11,7 @@ interface FamilyMember {
   color: string;
   landingMode: string;
   pin: string | null;
+  role: string;
 }
 
 interface HubConfig {
@@ -23,8 +24,10 @@ interface HubConfig {
   appVisibilityJson?: string | null;
   locationsJson?: string | null;
   appOverridesJson?: string | null;
+  expandedAppsJson?: string | null;
   requirePin?: number | null;
 }
+
 
 interface RoomMapping {
   id: string;
@@ -303,6 +306,125 @@ export default function AdminPage() {
               className="px-6 py-3 rounded-xl bg-gradient-to-r from-purple-500 to-pink-500 text-white font-medium disabled:opacity-30">
               {saving ? '...' : 'Add Member'}
             </button>
+          </div>
+        </Section>
+
+        <Section id="expanded-family" icon="🚢" title="Expanded Family" subtitle="Manage extended family members and which apps they can access">
+          <div className="space-y-4">
+            {/* Shared Apps */}
+            <div>
+              <h3 className="text-xs text-white/30 uppercase tracking-widest mb-3">Apps shared with expanded family</h3>
+              <div className="space-y-2">
+                {FAMILY_APPS.filter(a => a.status === 'live').map(app => {
+                  let expandedApps: string[] = [];
+                  if (config?.expandedAppsJson) try { expandedApps = JSON.parse(config.expandedAppsJson); } catch {}
+                  const isShared = expandedApps.includes(app.id);
+                  return (
+                    <div key={app.id} className="flex items-center justify-between p-3 bg-white/[0.02] rounded-xl">
+                      <div className="flex items-center gap-2">
+                        <span>{app.icon}</span>
+                        <span className="text-sm">{app.name}</span>
+                      </div>
+                      <button onClick={() => {
+                        const updated = isShared ? expandedApps.filter(id => id !== app.id) : [...expandedApps, app.id];
+                        apiCall({ config: { expandedAppsJson: JSON.stringify(updated) } });
+                      }}
+                        className={`w-11 h-6 rounded-full transition-colors relative ${isShared ? 'bg-cyan-500' : 'bg-white/15'}`}>
+                        <span className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-transform ${isShared ? 'left-6' : 'left-1'}`} />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Expanded Members */}
+            <div>
+              <h3 className="text-xs text-white/30 uppercase tracking-widest mb-3">Expanded family members</h3>
+              <div className="space-y-2">
+                {members.filter((m: FamilyMember) => m.role === 'expanded').map((m: FamilyMember) => (
+                  <div key={m.id} className="flex items-center gap-3 p-3 bg-white/[0.02] rounded-xl group">
+                    <span className="text-lg">{m.emoji}</span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium">{m.name}</p>
+                      <p className="text-[10px] text-white/25">PIN: {m.pin || 'none'}</p>
+                    </div>
+                    <button onClick={() => {
+                      const newName = prompt('Edit name:', m.name);
+                      if (newName && newName !== m.name) {
+                        fetch('/api/expanded-family', {
+                          method: 'POST', headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ action: 'update-member', id: m.id, name: newName }),
+                        }).then(() => fetchData());
+                      }
+                    }} className="text-white/20 hover:text-cyan-400 text-xs transition-colors">
+                      ✏️ Edit
+                    </button>
+                    <button onClick={() => {
+                      const newPin = prompt('Set PIN for ' + m.name + ':', m.pin || '');
+                      if (newPin !== null) {
+                        fetch('/api/expanded-family', {
+                          method: 'POST', headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ action: 'update-member', id: m.id, pin: newPin || null }),
+                        }).then(() => fetchData());
+                      }
+                    }} className="text-white/20 hover:text-amber-400 text-xs transition-colors">
+                      🔑 PIN
+                    </button>
+                    <button onClick={() => {
+                      const newEmoji = prompt('Set emoji for ' + m.name + ':', m.emoji);
+                      if (newEmoji) {
+                        fetch('/api/expanded-family', {
+                          method: 'POST', headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ action: 'update-member', id: m.id, emoji: newEmoji }),
+                        }).then(() => fetchData());
+                      }
+                    }} className="text-white/20 hover:text-purple-400 text-xs transition-colors">
+                      😀
+                    </button>
+                    <button onClick={() => {
+                      if (confirm(`Remove ${m.name} from expanded family?`)) {
+                        fetch('/api/expanded-family', {
+                          method: 'POST', headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ action: 'delete-member', id: m.id }),
+                        }).then(() => fetchData());
+                      }
+                    }} className="text-white/10 hover:text-red-400 text-xs opacity-0 group-hover:opacity-100 transition-all">
+                      ✕
+                    </button>
+                  </div>
+                ))}
+              </div>
+
+              {/* Add new expanded member */}
+              <div className="flex gap-2 mt-3">
+                <input type="text" id="new-expanded-name" placeholder="Name..."
+                  className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-white text-sm placeholder-white/30 focus:outline-none" />
+                <input type="text" id="new-expanded-emoji" placeholder="😀" maxLength={4}
+                  className="w-16 bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white text-sm text-center focus:outline-none" />
+                <input type="text" id="new-expanded-pin" placeholder="PIN"
+                  className="w-20 bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white text-sm text-center focus:outline-none" />
+                <button onClick={() => {
+                  const nameEl = document.getElementById('new-expanded-name') as HTMLInputElement;
+                  const emojiEl = document.getElementById('new-expanded-emoji') as HTMLInputElement;
+                  const pinEl = document.getElementById('new-expanded-pin') as HTMLInputElement;
+                  if (!nameEl.value) return;
+                  fetch('/api/expanded-family', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      action: 'add-member',
+                      name: nameEl.value,
+                      emoji: emojiEl.value || '👤',
+                      pin: pinEl.value || null,
+                      role: 'expanded',
+                    }),
+                  }).then(() => {
+                    nameEl.value = ''; emojiEl.value = ''; pinEl.value = '';
+                    fetchData();
+                  });
+                }} className="px-4 py-2 rounded-xl bg-cyan-500/20 text-cyan-400 text-sm font-medium">Add</button>
+              </div>
+            </div>
           </div>
         </Section>
 
