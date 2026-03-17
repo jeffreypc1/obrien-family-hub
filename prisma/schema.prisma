@@ -353,6 +353,19 @@ model CruiseChoice {
   @@unique([activityId, userName])
 }
 
+// ==================== PACKING LIST ====================
+
+model PackingItem {
+  id        String   @id @default(cuid())
+  userName  String
+  category  String
+  name      String
+  packed    Boolean  @default(false)
+  isCustom  Boolean  @default(false)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+}
+
 // ==================== FAMILY MEMBERS (shared) ====================
 
 model FamilyMember {

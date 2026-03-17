@@ -888,6 +888,247 @@ function AddActivityModal({
   );
 }
 
+// ─── Packing List ──────────────────────────────────────────
+
+interface PackingItemData {
+  id: string; userName: string; category: string; name: string;
+  packed: boolean; isCustom: boolean; sortOrder: number;
+}
+
+function PackingListPanel({
+  userName, allMembers, onClose, fontSize,
+}: {
+  userName: string;
+  allMembers: { name: string; emoji: string }[];
+  onClose: () => void;
+  fontSize: number;
+}) {
+  const scale = fontSize / 16;
+  const [items, setItems] = useState<PackingItemData[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [newItemName, setNewItemName] = useState('');
+  const [newItemCategory, setNewItemCategory] = useState('📌 Custom');
+  const [viewUser, setViewUser] = useState(userName);
+  const [familyProgress, setFamilyProgress] = useState<Record<string, { total: number; packed: number }>>({});
+
+  const fetchItems = useCallback(async (user: string) => {
+    setLoading(true);
+    const res = await fetch(`/api/cruise/packing?userName=${encodeURIComponent(user)}`);
+    const data = await res.json();
+    setItems(data);
+    setLoading(false);
+  }, []);
+
+  // Fetch family progress
+  const fetchFamilyProgress = useCallback(async () => {
+    const progress: Record<string, { total: number; packed: number }> = {};
+    for (const m of allMembers) {
+      const res = await fetch(`/api/cruise/packing?userName=${encodeURIComponent(m.name)}`);
+      const data = await res.json();
+      progress[m.name] = { total: data.length, packed: data.filter((i: PackingItemData) => i.packed).length };
+    }
+    setFamilyProgress(progress);
+  }, [allMembers]);
+
+  useEffect(() => { fetchItems(viewUser); }, [fetchItems, viewUser]);
+  useEffect(() => { fetchFamilyProgress(); }, [fetchFamilyProgress]);
+
+  const toggleItem = async (id: string, packed: boolean) => {
+    setItems(prev => prev.map(i => i.id === id ? { ...i, packed } : i));
+    await fetch('/api/cruise/packing', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'toggle', id, packed }),
+    });
+    fetchFamilyProgress();
+  };
+
+  const addItem = async () => {
+    if (!newItemName.trim()) return;
+    const res = await fetch('/api/cruise/packing', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'add', userName: viewUser, name: newItemName.trim(), category: newItemCategory }),
+    });
+    const item = await res.json();
+    setItems(prev => [...prev, item]);
+    setNewItemName('');
+    fetchFamilyProgress();
+  };
+
+  const deleteItem = async (id: string) => {
+    setItems(prev => prev.filter(i => i.id !== id));
+    await fetch(`/api/cruise/packing?id=${id}`, { method: 'DELETE' });
+    fetchFamilyProgress();
+  };
+
+  // Group by category
+  const categories = [...new Set(items.map(i => i.category))];
+  const totalPacked = items.filter(i => i.packed).length;
+  const totalItems = items.length;
+  const pctPacked = totalItems > 0 ? Math.round((totalPacked / totalItems) * 100) : 0;
+  const isViewingSelf = viewUser === userName;
+
+  return (
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center" onClick={onClose}>
+      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
+      <motion.div
+        initial={{ y: 50, scale: 0.95 }} animate={{ y: 0, scale: 1 }}
+        onClick={e => e.stopPropagation()}
+        className="relative glass rounded-t-3xl sm:rounded-3xl w-full sm:max-w-2xl max-h-[92vh] overflow-hidden flex flex-col">
+
+        {/* Header */}
+        <div className="border-b border-white/10" style={{ padding: `${16 * scale}px ${20 * scale}px` }}>
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="font-bold flex items-center" style={{ fontSize: 20 * scale, gap: 8 * scale }}>
+                🧳 Packing List
+              </h2>
+              <p className="text-white/30" style={{ fontSize: 12 * scale }}>
+                {totalPacked}/{totalItems} packed · {pctPacked}% ready
+              </p>
+            </div>
+            <button onClick={onClose} className="text-white/30 hover:text-white/60"
+              style={{ fontSize: 22 * scale }}>✕</button>
+          </div>
+
+          {/* Progress bar */}
+          <div className="rounded-full overflow-hidden bg-white/5" style={{ height: 8 * scale, marginTop: 10 * scale }}>
+            <motion.div
+              className="h-full rounded-full"
+              style={{ background: pctPacked === 100 ? 'linear-gradient(90deg, #22C55E, #10B981)' : 'linear-gradient(90deg, #06B6D4, #3B82F6)' }}
+              initial={{ width: 0 }} animate={{ width: `${pctPacked}%` }} transition={{ duration: 0.5 }}
+            />
+          </div>
+          {pctPacked === 100 && (
+            <p className="text-green-400 font-semibold text-center" style={{ fontSize: 13 * scale, marginTop: 6 * scale }}>
+              ✅ All packed and ready to go!
+            </p>
+          )}
+        </div>
+
+        {/* Family member switcher */}
+        <div className="border-b border-white/5 flex items-center overflow-x-auto"
+          style={{ padding: `${8 * scale}px ${20 * scale}px`, gap: 6 * scale }}>
+          {allMembers.map(m => {
+            const prog = familyProgress[m.name];
+            const pct = prog ? Math.round((prog.packed / prog.total) * 100) : 0;
+            const isActive = viewUser === m.name;
+            return (
+              <button key={m.name} onClick={() => setViewUser(m.name)}
+                className={`flex-shrink-0 flex items-center rounded-xl transition-all ${
+                  isActive ? 'bg-cyan-500/15 ring-1 ring-cyan-500/30' : 'bg-white/[0.03] hover:bg-white/[0.06]'
+                }`}
+                style={{ padding: `${5 * scale}px ${10 * scale}px`, gap: 6 * scale }}>
+                <span style={{ fontSize: 16 * scale }}>{m.emoji}</span>
+                <div className="text-left hidden sm:block">
+                  <p className={`font-medium ${isActive ? 'text-white' : 'text-white/50'}`} style={{ fontSize: 11 * scale }}>
+                    {m.name}
+                  </p>
+                  <p className={pct === 100 ? 'text-green-400' : 'text-white/20'} style={{ fontSize: 9 * scale }}>
+                    {prog ? `${pct}%` : '—'}
+                  </p>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Items list */}
+        <div className="flex-1 overflow-y-auto" style={{ padding: `${12 * scale}px ${20 * scale}px` }}>
+          {loading ? (
+            <div className="text-center py-10">
+              <motion.span animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1.5, ease: 'linear' }}
+                className="inline-block" style={{ fontSize: 32 * scale }}>🧳</motion.span>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 * scale }}>
+              {categories.map(cat => {
+                const catItems = items.filter(i => i.category === cat);
+                const catPacked = catItems.filter(i => i.packed).length;
+                const allDone = catPacked === catItems.length;
+                return (
+                  <div key={cat}>
+                    <div className="flex items-center justify-between" style={{ marginBottom: 6 * scale }}>
+                      <h3 className="font-bold" style={{ fontSize: 14 * scale }}>
+                        {cat}
+                      </h3>
+                      <span className={`font-medium ${allDone ? 'text-green-400' : 'text-white/25'}`}
+                        style={{ fontSize: 11 * scale }}>
+                        {allDone ? '✅' : `${catPacked}/${catItems.length}`}
+                      </span>
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 2 * scale }}>
+                      {catItems.map(item => (
+                        <div key={item.id}
+                          className={`flex items-center rounded-xl transition-all group ${
+                            item.packed ? 'bg-green-500/[0.04]' : 'bg-white/[0.02] hover:bg-white/[0.04]'
+                          }`}
+                          style={{ padding: `${7 * scale}px ${10 * scale}px`, gap: 10 * scale }}>
+                          <button
+                            onClick={() => isViewingSelf && toggleItem(item.id, !item.packed)}
+                            disabled={!isViewingSelf}
+                            className={`flex-shrink-0 rounded-lg border-2 flex items-center justify-center transition-all ${
+                              item.packed
+                                ? 'bg-green-500/20 border-green-500/40 text-green-400'
+                                : 'border-white/15 text-transparent hover:border-white/30'
+                            }`}
+                            style={{ width: 24 * scale, height: 24 * scale, fontSize: 13 * scale }}
+                          >
+                            {item.packed ? '✓' : ''}
+                          </button>
+                          <span className={`flex-1 ${item.packed ? 'line-through text-white/25' : 'text-white/70'}`}
+                            style={{ fontSize: 14 * scale }}>
+                            {item.name}
+                          </span>
+                          {item.isCustom && isViewingSelf && (
+                            <button onClick={() => deleteItem(item.id)}
+                              className="text-white/10 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all"
+                              style={{ fontSize: 12 * scale }}>✕</button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Add item footer */}
+        {isViewingSelf && (
+          <div className="border-t border-white/10" style={{ padding: `${12 * scale}px ${20 * scale}px` }}>
+            <div className="flex items-center" style={{ gap: 8 * scale }}>
+              <select value={newItemCategory} onChange={e => setNewItemCategory(e.target.value)}
+                className="bg-white/5 border border-white/10 rounded-xl text-white/60 [&>option]:bg-gray-900"
+                style={{ fontSize: 12 * scale, padding: `${8 * scale}px ${6 * scale}px` }}>
+                <option value="📄 Documents">📄 Documents</option>
+                <option value="👕 Clothing">👕 Clothing</option>
+                <option value="🧴 Toiletries">🧴 Toiletries</option>
+                <option value="🏖️ Beach & Pool">🏖️ Beach</option>
+                <option value="🔌 Electronics">🔌 Electronics</option>
+                <option value="🚢 Cruise Essentials">🚢 Cruise</option>
+                <option value="🎉 Fun & Comfort">🎉 Fun</option>
+                <option value="📌 Custom">📌 Custom</option>
+              </select>
+              <input value={newItemName} onChange={e => setNewItemName(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && addItem()}
+                placeholder="Add an item..."
+                className="flex-1 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/20 focus:outline-none focus:border-cyan-500/30"
+                style={{ fontSize: 14 * scale, padding: `${8 * scale}px ${12 * scale}px` }} />
+              <button onClick={addItem} disabled={!newItemName.trim()}
+                className="rounded-xl bg-cyan-500/20 text-cyan-400 font-semibold border border-cyan-500/20 hover:bg-cyan-500/30 transition-all disabled:opacity-30"
+                style={{ fontSize: 13 * scale, padding: `${8 * scale}px ${14 * scale}px` }}>
+                + Add
+              </button>
+            </div>
+          </div>
+        )}
+      </motion.div>
+    </motion.div>
+  );
+}
+
 // ─── Admin Panel ───────────────────────────────────────────
 
 function AdminPanel({
@@ -1221,6 +1462,7 @@ export default function CruisePage() {
   const [pendingDropChoice, setPendingDropChoice] = useState<ColumnKey | null>(null);
   const [viewingMember, setViewingMember] = useState<string | null>(null); // null = viewing self
   const [showAddActivity, setShowAddActivity] = useState(false);
+  const [showPacking, setShowPacking] = useState(false);
   const dragOverCol = useRef<string | null>(null);
 
   // Load saved font size
@@ -1454,6 +1696,11 @@ export default function CruisePage() {
                 style={{ padding: `${5 * scale}px ${8 * scale}px`, fontSize: 13 * scale }}
                 title="Bigger text">A+</button>
             </div>
+            <button onClick={() => setShowPacking(true)}
+              className="rounded-xl bg-cyan-500/10 text-cyan-400/70 hover:text-cyan-400 hover:bg-cyan-500/20 transition-all font-medium"
+              style={{ fontSize: 12 * scale, padding: `${6 * scale}px ${10 * scale}px` }}>
+              🧳 Pack
+            </button>
             <button onClick={() => setShowAdmin(true)}
               className="rounded-xl bg-white/5 text-white/40 hover:text-white/60 transition-all"
               style={{ fontSize: 12 * scale, padding: `${6 * scale}px ${10 * scale}px` }}>
@@ -1817,6 +2064,17 @@ export default function CruisePage() {
           </div>
         </>
       )}
+
+      <AnimatePresence>
+        {showPacking && (
+          <PackingListPanel
+            userName={currentMember.name}
+            allMembers={members}
+            onClose={() => setShowPacking(false)}
+            fontSize={fontSize}
+          />
+        )}
+      </AnimatePresence>
 
       <AnimatePresence>
         {showAdmin && (
