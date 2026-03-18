@@ -149,6 +149,18 @@ export const FAMILY_APPS: FamilyApp[] = [
     status: 'live',
   },
   {
+    id: 'tools',
+    name: 'Custom Apps',
+    tagline: 'Build. Automate. Create.',
+    description: 'Custom tools and automations — YouTube to Podcast converter, and more coming soon.',
+    url: '/tools',
+    icon: '🛠️',
+    gradient: 'from-purple-500 via-pink-500 to-purple-500',
+    glowClass: 'glow-purple',
+    accentColor: '#A855F7',
+    status: 'live',
+  },
+  {
     id: 'wishlist',
     name: 'Wish List',
     tagline: 'Wish. Share. Surprise.',
