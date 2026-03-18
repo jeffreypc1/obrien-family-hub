@@ -55,82 +55,80 @@ async function getTranscript(videoId: string): Promise<string> {
 }
 
 async function generateSummary(transcript: string, durationSeconds: number): Promise<string> {
-  const wordsPerSecond = 2.5; // average speaking rate
+  const wordsPerSecond = 2.5;
   const targetWords = Math.round(durationSeconds * wordsPerSecond);
 
-  const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${process.env.GOOGLE_API_KEY}`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{
-          parts: [{
-            text: `Create a spoken-style audio briefing summarizing this content in approximately ${targetWords} words (about ${durationSeconds} seconds when read aloud).
+  const res = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: 'gpt-4o-mini',
+      messages: [
+        { role: 'system', content: 'You are a professional podcast briefing writer.' },
+        { role: 'user', content: `Create a spoken-style audio briefing summarizing this content in approximately ${targetWords} words (about ${durationSeconds} seconds when read aloud).
 
 Speak in a confident, informative, engaging podcast tone. Structure it clearly with the key points. Do NOT include any stage directions, headers, or markdown — just the spoken text.
 
 Transcript:
-${transcript.slice(0, 15000)}`
-          }]
-        }],
-        generationConfig: { temperature: 0.7 },
-      }),
-    }
-  );
+${transcript.slice(0, 12000)}` },
+      ],
+      temperature: 0.7,
+    }),
+  });
 
   const data = await res.json();
-  return data.candidates?.[0]?.content?.parts?.[0]?.text || 'Summary generation failed.';
+  return data.choices?.[0]?.message?.content || 'Summary generation failed.';
 }
 
 async function textToSpeech(text: string, outputFile: string): Promise<void> {
-  // Use Google Cloud TTS via REST API
-  const res = await fetch(
-    `https://texttospeech.googleapis.com/v1/text:synthesize?key=${process.env.GOOGLE_API_KEY}`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        input: { text: text.slice(0, 5000) }, // API limit
-        voice: { languageCode: 'en-US', name: 'en-US-Journey-D' },
-        audioConfig: { audioEncoding: 'MP3', speakingRate: 1.0, pitch: 0 },
-      }),
-    }
-  );
+  // Use OpenAI TTS (same as ai_briefing.py)
+  const res = await fetch('https://api.openai.com/v1/audio/speech', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: 'gpt-4o-mini-tts',
+      voice: 'alloy',
+      input: text,
+    }),
+  });
 
-  const data = await res.json();
-  if (!data.audioContent) {
-    // Fallback to a simpler voice if Journey isn't available
-    const res2 = await fetch(
-      `https://texttospeech.googleapis.com/v1/text:synthesize?key=${process.env.GOOGLE_API_KEY}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          input: { text: text.slice(0, 5000) },
-          voice: { languageCode: 'en-US', name: 'en-US-Wavenet-D' },
-          audioConfig: { audioEncoding: 'MP3', speakingRate: 1.0, pitch: 0 },
-        }),
-      }
-    );
-    const data2 = await res2.json();
-    if (!data2.audioContent) throw new Error('TTS failed: ' + JSON.stringify(data2.error || data2));
-    fs.writeFileSync(outputFile, Buffer.from(data2.audioContent, 'base64'));
-    return;
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`TTS failed (${res.status}): ${err}`);
   }
-  fs.writeFileSync(outputFile, Buffer.from(data.audioContent, 'base64'));
+
+  const buffer = Buffer.from(await res.arrayBuffer());
+  fs.writeFileSync(outputFile, buffer);
 }
 
 function downloadOriginalAudio(url: string, outputFile: string): void {
-  // Remove extension for yt-dlp (it adds it back)
   const base = outputFile.replace('.m4a', '');
-  execSync(
-    `yt-dlp -f bestaudio --extract-audio --audio-format m4a -o "${base}" "${url}"`,
-    { timeout: 300000, stdio: 'pipe' }
-  );
-  // yt-dlp may add .m4a extension
-  if (!fs.existsSync(outputFile) && fs.existsSync(base + '.m4a')) {
-    fs.renameSync(base + '.m4a', outputFile);
+  try {
+    execSync(
+      `yt-dlp -f "bestaudio[ext=m4a]/bestaudio" --extract-audio --audio-format m4a -o "${base}.%(ext)s" "${url}"`,
+      { timeout: 300000, stdio: 'pipe' }
+    );
+  } catch {
+    // Fallback: try without format filter
+    execSync(
+      `yt-dlp --extract-audio --audio-format m4a -o "${base}.%(ext)s" "${url}"`,
+      { timeout: 300000, stdio: 'pipe' }
+    );
+  }
+  // yt-dlp adds extension — find the file
+  if (!fs.existsSync(outputFile)) {
+    const dir = path.dirname(outputFile);
+    const baseName = path.basename(base);
+    const files = fs.readdirSync(dir).filter(f => f.startsWith(baseName));
+    if (files.length > 0) {
+      fs.renameSync(path.join(dir, files[0]), outputFile);
+    }
   }
 }
 
@@ -145,17 +143,43 @@ function cleanFilename(text: string): string {
   return text.replace(/[\\/*?:"<>|]/g, '').replace(/\s+/g, '_').slice(0, 60);
 }
 
-function updateRss(title: string, filename: string, description: string): void {
+async function downloadThumbnail(videoId: string): Promise<string> {
+  // Try maxresdefault, then hqdefault
+  const thumbDir = path.join(REPO_PATH, 'thumbs');
+  if (!fs.existsSync(thumbDir)) fs.mkdirSync(thumbDir, { recursive: true });
+  const filename = `${videoId}.jpg`;
+  const thumbPath = path.join(thumbDir, filename);
+
+  for (const quality of ['maxresdefault', 'hqdefault', 'mqdefault']) {
+    try {
+      const imgUrl = `https://img.youtube.com/vi/${videoId}/${quality}.jpg`;
+      const res = await fetch(imgUrl);
+      if (res.ok) {
+        const buffer = Buffer.from(await res.arrayBuffer());
+        // maxresdefault returns a tiny placeholder if not available
+        if (buffer.length > 5000) {
+          fs.writeFileSync(thumbPath, buffer);
+          return `https://obrien-private-podcast.onrender.com/thumbs/${filename}`;
+        }
+      }
+    } catch { /* try next quality */ }
+  }
+  // Fallback: no thumbnail
+  return '';
+}
+
+function updateRss(title: string, filename: string, description: string, thumbnailUrl: string): void {
   const pubDate = new Date().toUTCString();
   const fileUrl = `https://obrien-private-podcast.onrender.com/audio/${encodeURIComponent(filename)}`;
 
+  const thumbTag = thumbnailUrl ? `\n      <itunes:image href="${thumbnailUrl}"/>` : '';
   const newItem = `
     <item>
       <title>${title.replace(/&/g, '&amp;').replace(/</g, '&lt;')}</title>
       <description>${description.replace(/&/g, '&amp;').replace(/</g, '&lt;').slice(0, 4000)}</description>
       <pubDate>${pubDate}</pubDate>
       <enclosure url="${fileUrl}" type="audio/mp4" length="10000000"/>
-      <guid>${fileUrl}</guid>
+      <guid>${fileUrl}</guid>${thumbTag}
     </item>
 `;
 
@@ -220,8 +244,11 @@ export async function POST(req: NextRequest) {
     const finalPath = path.join(AUDIO_PATH, finalFilename);
     fs.copyFileSync(tempFinal, finalPath);
 
-    // Step 8: Update RSS + push
-    updateRss(episodeTitle, finalFilename, `AI Summary:\n${summaryText}`);
+    // Step 8: Download thumbnail
+    const thumbnailUrl = await downloadThumbnail(videoId);
+
+    // Step 9: Update RSS + push
+    updateRss(episodeTitle, finalFilename, `AI Summary:\n${summaryText}`, thumbnailUrl);
     gitPush();
 
     // Cleanup
