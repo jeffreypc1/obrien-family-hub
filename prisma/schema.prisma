@@ -353,6 +353,22 @@ model CruiseChoice {
   @@unique([activityId, userName])
 }
 
+// ==================== PODCAST EPISODES ====================
+
+model PodcastEpisode {
+  id          String   @id @default(cuid())
+  title       String
+  videoId     String
+  videoUrl    String
+  channel     String
+  summary     String
+  transcript  String
+  filename    String
+  thumbnailUrl String?
+  durationSec Int?
+  createdAt   DateTime @default(now())
+}
+
 // ==================== PACKING LIST ====================
 
 model PackingItem {

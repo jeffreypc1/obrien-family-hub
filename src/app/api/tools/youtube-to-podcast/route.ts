@@ -3,6 +3,7 @@ import { execSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
+import { prisma } from '@/lib/db';
 
 const REPO_PATH = path.join(os.homedir(), 'Desktop/obrien-private-podcast');
 const AUDIO_PATH = path.join(REPO_PATH, 'audio');
@@ -14,11 +15,14 @@ function extractVideoId(url: string): string {
   return match[1];
 }
 
-async function fetchYoutubeTitle(url: string): Promise<string> {
+async function fetchYoutubeInfo(url: string): Promise<{ title: string; channel: string }> {
   const params = new URLSearchParams({ format: 'json', url });
   const res = await fetch(`https://www.youtube.com/oembed?${params}`);
   const data = await res.json();
-  return data.title || 'YouTube Video';
+  return {
+    title: data.title || 'YouTube Video',
+    channel: data.author_name || 'Unknown Channel',
+  };
 }
 
 async function getTranscript(videoId: string): Promise<string> {
@@ -204,7 +208,7 @@ export async function GET() {
 // POST: process a YouTube video
 export async function POST(req: NextRequest) {
   const body = await req.json();
-  const { url, summarySeconds = 60 } = body;
+  const { url, summarySeconds = 60, emailTo } = body;
 
   if (!url) return NextResponse.json({ error: 'Missing URL' }, { status: 400 });
 
@@ -213,9 +217,9 @@ export async function POST(req: NextRequest) {
   try {
     // Step 1: Get video info
     const videoId = extractVideoId(url);
-    const rawTitle = await fetchYoutubeTitle(url);
-    const shortTitle = rawTitle.split('|')[0].trim().slice(0, 60);
-    const episodeTitle = `AI Briefing: ${shortTitle}`;
+    const { title: rawTitle, channel } = await fetchYoutubeInfo(url);
+    const shortTitle = rawTitle.split('|')[0].trim().slice(0, 50);
+    const episodeTitle = `AI Briefing: ${shortTitle} [${channel}]`;
 
     // Step 2: Get transcript
     const transcript = await getTranscript(videoId);
@@ -248,8 +252,23 @@ export async function POST(req: NextRequest) {
     const thumbnailUrl = await downloadThumbnail(videoId);
 
     // Step 9: Update RSS + push
-    updateRss(episodeTitle, finalFilename, `AI Summary:\n${summaryText}`, thumbnailUrl);
+    updateRss(episodeTitle, finalFilename, `AI Summary (by ${channel}):\n${summaryText}`, thumbnailUrl);
     gitPush();
+
+    // Step 10: Save episode to database
+    await prisma.podcastEpisode.create({
+      data: {
+        title: episodeTitle,
+        videoId,
+        videoUrl: url,
+        channel,
+        summary: summaryText,
+        transcript: transcript.slice(0, 30000),
+        filename: finalFilename,
+        thumbnailUrl: thumbnailUrl || `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`,
+        durationSec: summarySeconds,
+      },
+    });
 
     // Cleanup
     fs.rmSync(tmpDir, { recursive: true, force: true });
@@ -257,9 +276,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       success: true,
       title: episodeTitle,
+      channel,
       summary: summaryText,
       transcript: transcript.slice(0, 2000) + (transcript.length > 2000 ? '...' : ''),
       filename: finalFilename,
+      thumbnailUrl: thumbnailUrl || `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`,
+      emailTo: emailTo || null,
     });
   } catch (error: unknown) {
     fs.rmSync(tmpDir, { recursive: true, force: true });
